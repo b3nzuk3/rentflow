@@ -1,0 +1,790 @@
+# RENTFLOW V1 - FOUNDATIONAL PROPTECH PLATFORM FOR AFRICA
+
+You are a Principal Software Architect, Product Manager, Staff Backend Engineer, Staff Frontend Engineer, SaaS Architect, Security Engineer, DevOps Engineer, and UX Designer.
+
+Your task is to design and build a production-grade multi-tenant SaaS platform called RentFlow.
+
+Do not build a simple property management system.
+
+Build a scalable rental operations platform focused on rent payment reconciliation, occupancy tracking, lease management, and future financial automation.
+
+The platform must be capable of scaling from:
+
+* 10 units
+* 100 units
+* 1,000 units
+* 50,000+ units
+
+without requiring a database redesign.
+
+---
+
+# PRODUCT VISION
+
+RentFlow helps landlords, property managers, and real estate agencies track rent payments and occupancy without relying on screenshots, spreadsheets, or manual reconciliation.
+
+The MVP does NOT process money.
+
+The MVP does NOT hold funds.
+
+The MVP tracks payments, verifies payments, manages tenants, manages leases, and creates a foundation for future payment automation.
+
+The primary customer is:
+
+Property Managers
+
+Secondary customers:
+
+Landlords
+
+The entire architecture should optimize for property management companies managing hundreds or thousands of units.
+
+---
+
+# BRANDING
+
+Application Name:
+RentFlow
+
+Theme:
+
+Primary:
+Jungle Green (#228B22)
+
+Secondary:
+White (#FFFFFF)
+
+Accent:
+#4CAF50
+
+Design Style:
+
+* Professional
+* Modern SaaS
+* Clean
+* Enterprise-ready
+* Mobile-first
+* Trustworthy
+
+The AI has full freedom regarding layouts and UI decisions.
+
+---
+
+# SYSTEM ARCHITECTURE
+
+Use a multi-tenant SaaS architecture.
+
+Core Structure:
+
+Organization
+├── Users
+├── Properties
+├── Blocks
+├── Units
+├── Leases
+├── Tenants
+├── Payments
+├── Notifications
+└── Reports
+
+Every business record belongs to an organization.
+
+No organization should ever access another organization's data.
+
+All queries must be tenant-scoped.
+
+---
+
+# USER ROLES
+
+1. Super Admin
+
+Platform owner.
+
+Can access platform-wide analytics.
+
+Cannot modify organization data.
+
+---
+
+2. Organization Owner
+
+Property company owner.
+
+Full access within organization.
+
+---
+
+3. Property Manager
+
+Manages properties, leases, tenants, and payments.
+
+---
+
+4. Accountant
+
+Can verify payments.
+
+Can view financial reports.
+
+Cannot manage users.
+
+---
+
+5. Caretaker
+
+Can view occupancy.
+
+Can update unit status.
+
+Cannot view sensitive financial data.
+
+---
+
+6. Tenant
+
+Accesses tenant portal.
+
+Can submit payments.
+
+Can view rent status.
+
+---
+
+# TECH STACK
+
+Frontend
+
+* Next.js 15
+* TypeScript
+* TailwindCSS
+* shadcn/ui
+* Zustand
+* React Query
+
+Backend
+
+* FastAPI
+* SQLAlchemy
+* Alembic
+
+Database
+
+* PostgreSQL
+
+Caching
+
+* Redis
+
+Authentication
+
+* JWT
+* Refresh Tokens
+
+Storage
+
+* S3 Compatible Storage
+
+Infrastructure
+
+* Docker
+* Docker Compose
+
+Architecture must be Kubernetes-ready.
+
+---
+
+# CORE DATABASE DESIGN
+
+## organizations
+
+id
+
+uuid
+
+name
+
+subscription_plan
+
+is_active
+
+created_at
+
+updated_at
+
+---
+
+## users
+
+id
+
+uuid
+
+organization_id
+
+first_name
+
+last_name
+
+phone_number
+
+email
+
+password_hash
+
+role
+
+is_active
+
+created_at
+
+updated_at
+
+---
+
+## properties
+
+id
+
+uuid
+
+organization_id
+
+name
+
+location
+
+description
+
+status
+
+created_at
+
+updated_at
+
+---
+
+## blocks
+
+Many African apartments have blocks.
+
+Examples:
+
+Block A
+Block B
+
+Optional layer.
+
+Schema:
+
+id
+
+uuid
+
+property_id
+
+name
+
+created_at
+
+updated_at
+
+---
+
+## units
+
+id
+
+uuid
+
+organization_id
+
+property_id
+
+block_id
+
+unit_code
+
+rent_amount
+
+status
+
+created_at
+
+updated_at
+
+Unit status:
+
+Vacant
+
+Reserved
+
+Occupied
+
+Notice Given
+
+Under Maintenance
+
+---
+
+## tenants
+
+id
+
+uuid
+
+organization_id
+
+first_name
+
+last_name
+
+phone_number
+
+email
+
+national_id
+
+status
+
+created_at
+
+updated_at
+
+Tenant status:
+
+Invited
+
+Active
+
+Notice Given
+
+Moved Out
+
+Blacklisted
+
+---
+
+# IMPORTANT
+
+Never directly connect tenants to units.
+
+Use leases.
+
+---
+
+## leases
+
+id
+
+uuid
+
+organization_id
+
+tenant_id
+
+unit_id
+
+monthly_rent
+
+security_deposit
+
+start_date
+
+end_date
+
+status
+
+created_at
+
+updated_at
+
+Lease status:
+
+Draft
+
+Active
+
+Expired
+
+Terminated
+
+Completed
+
+This preserves tenant history.
+
+---
+
+# PAYMENT SYSTEM
+
+The MVP is a payment reconciliation system.
+
+NOT a payment processor.
+
+---
+
+## payments
+
+id
+
+uuid
+
+organization_id
+
+lease_id
+
+amount
+
+payment_method
+
+transaction_code
+
+payment_date
+
+submitted_by
+
+verified_by
+
+verification_notes
+
+status
+
+created_at
+
+updated_at
+
+Payment status:
+
+Pending
+
+Verified
+
+Rejected
+
+Refunded
+
+Transaction codes must be unique.
+
+Verified payments become immutable.
+
+---
+
+# PAYMENT WORKFLOW
+
+Tenant pays externally.
+
+Examples:
+
+M-Pesa Paybill
+
+M-Pesa Buy Goods
+
+Bank Transfer
+
+Bank Deposit
+
+Cash
+
+Tenant logs into RentFlow.
+
+Submits:
+
+* Amount
+* Transaction Code
+* Payment Method
+* Date
+
+Optional:
+
+Screenshot Upload
+
+System creates:
+
+Pending Payment
+
+Property Manager or Accountant verifies.
+
+Status changes to:
+
+Verified
+
+Tenant receives notification.
+
+---
+
+# INVITATION SYSTEM
+
+Tenant self-registration is disabled.
+
+Only organizations may invite tenants.
+
+Flow:
+
+Organization Owner
+
+or
+
+Property Manager
+
+creates invitation.
+
+Invitation sent via SMS.
+
+Tenant activates account.
+
+Tenant automatically receives access to assigned lease and unit.
+
+---
+
+# DASHBOARD REQUIREMENTS
+
+Organization Dashboard
+
+Display:
+
+Expected Monthly Rent
+
+Collected Rent
+
+Outstanding Rent
+
+Occupancy Rate
+
+Vacant Units
+
+Pending Payments
+
+Overdue Payments
+
+Recent Activities
+
+---
+
+# REPORTING
+
+Collection Report
+
+Outstanding Rent Report
+
+Occupancy Report
+
+Vacancy Report
+
+Payment Trend Report
+
+Export:
+
+CSV
+
+PDF
+
+---
+
+# NOTIFICATION SERVICE
+
+Design as separate service.
+
+Channels:
+
+SMS
+
+Email
+
+In-App Notifications
+
+Future:
+
+WhatsApp
+
+Triggers:
+
+Tenant Invited
+
+Rent Due
+
+Rent Overdue
+
+Payment Submitted
+
+Payment Verified
+
+Payment Rejected
+
+Lease Expiring
+
+---
+
+# AUDIT LOGGING
+
+Every action must be tracked.
+
+Store:
+
+User
+
+Action
+
+Entity
+
+Previous Value
+
+New Value
+
+Timestamp
+
+IP Address
+
+---
+
+# API DESIGN
+
+REST API
+
+/api/v1/
+
+Requirements:
+
+Swagger
+
+OpenAPI
+
+Pagination
+
+Filtering
+
+Sorting
+
+Global Error Handling
+
+Rate Limiting
+
+Validation
+
+Structured Logging
+
+---
+
+# SECURITY
+
+RBAC
+
+Password Hashing
+
+JWT
+
+Refresh Tokens
+
+Secure Headers
+
+CSRF Protection
+
+Input Validation
+
+File Upload Validation
+
+Environment Variables
+
+Audit Logs
+
+Tenant Isolation
+
+---
+
+# SAAS BILLING MODEL
+
+Design subscription architecture.
+
+Plans:
+
+Starter
+
+Growth
+
+Enterprise
+
+Billing metric:
+
+Active Units
+
+Not users.
+
+Prepare database schema for subscriptions and billing.
+
+---
+
+# FUTURE-READY MODULES
+
+The architecture must support future additions without redesign.
+
+Future modules:
+
+M-Pesa Daraja Integration
+
+Automated Payment Verification
+
+Bank Integrations
+
+AI Statement Parsing
+
+Lease E-Signing
+
+Maintenance Requests
+
+Utility Billing
+
+Visitor Management
+
+Accounting
+
+Mobile App
+
+WhatsApp Bot
+
+AI Collections Assistant
+
+AI Rent Prediction
+
+AI Occupancy Forecasting
+
+---
+
+# V1 MVP GOAL
+
+The single goal of V1:
+
+Eliminate manual rent payment tracking.
+
+A property manager should be able to:
+
+1. Create properties
+2. Create units
+3. Create leases
+4. Invite tenants
+5. Receive payment submissions
+6. Verify payments
+7. Track rent collection status
+
+Everything else is secondary.
+
+---
+
+# DELIVERABLES
+
+Generate:
+
+1. Complete system architecture
+2. C4 architecture diagrams
+3. ER diagrams
+4. PostgreSQL schema
+5. FastAPI backend
+6. Next.js frontend
+7. Authentication module
+8. RBAC module
+9. Notification service
+10. Audit service
+11. Docker deployment
+12. CI/CD pipeline
+13. Testing strategy
+14. Production deployment guide
+
+Produce enterprise-grade code and architecture suitable for a venture-backed proptech startup serving East Africa.
