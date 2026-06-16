@@ -73,6 +73,6 @@ export function getStoredUser() {
   return user ? JSON.parse(user) : null;
 }
 
-export function storeUser(user: Record<string, unknown>) {
+export function storeUser(user: Record<string, unknown> | LoginResponse) {
   localStorage.setItem("user", JSON.stringify(user));
 }

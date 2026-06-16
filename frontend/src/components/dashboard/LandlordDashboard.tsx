@@ -74,7 +74,7 @@ export function LandlordDashboard({ summary }: Props) {
           <div>
             <p className="text-xs font-bold font-mono uppercase tracking-wider text-on-surface-variant">Occupancy Rate</p>
             <h3 className="text-3xl font-extrabold text-on-surface tracking-tight mt-1">
-              {summary.occupiedUnits} <span className="text-on-surface-variant font-normal text-md">/ {summary.totalUnits} Units</span>
+              {summary.occupied_units} <span className="text-on-surface-variant font-normal text-md">/ {summary.total_units} Units</span>
             </h3>
             <div className="w-full bg-surface-container rounded-full h-1 mt-3">
               <div className="bg-indigo-600 h-1 rounded-full transition-all duration-700" style={{ width: `${occupancyRate || 0}%` }} />
@@ -110,7 +110,7 @@ export function LandlordDashboard({ summary }: Props) {
           <div className="flat-card rounded-2xl p-6 text-center">
             <Building className="w-12 h-12 text-on-surface-variant/30 mx-auto mb-3" />
             <p className="text-sm font-bold text-on-surface-variant">Properties: {summary.total_properties}</p>
-            <p className="text-xs text-on-surface-variant mt-1">Total Units: {summary.total_units} | Vacant: {summary.vacant_units}</p>
+<p className="text-xs text-on-surface-variant mt-1">Total Units: {summary.total_units} | Vacant: {summary.vacant_units}</p>
           </div>
         </div>
 
