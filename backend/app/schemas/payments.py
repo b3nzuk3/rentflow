@@ -1,12 +1,11 @@
 from pydantic import BaseModel
-from uuid import UUID
 from typing import Optional
 from datetime import datetime
 from app.db.models import PaymentStatus, PaymentMethod
 
 
 class PaymentCreate(BaseModel):
-    lease_id: UUID
+    lease_id: str
     amount: int
     payment_method: PaymentMethod
     transaction_code: str
@@ -22,9 +21,9 @@ class PaymentVerify(BaseModel):
 
 
 class PaymentResponse(BaseModel):
-    id: UUID
-    organization_id: UUID
-    lease_id: UUID
+    id: str
+    organization_id: str
+    lease_id: str
     amount: int
     payment_method: PaymentMethod
     transaction_code: str

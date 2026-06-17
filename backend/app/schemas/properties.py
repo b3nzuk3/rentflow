@@ -1,5 +1,4 @@
 from pydantic import BaseModel
-from uuid import UUID
 from typing import Optional
 from datetime import datetime
 from app.db.models import PropertyStatus
@@ -23,8 +22,8 @@ class PropertyUpdate(BaseModel):
 
 
 class PropertyResponse(BaseModel):
-    id: UUID
-    organization_id: UUID
+    id: str
+    organization_id: str
     name: str
     location: str
     description: Optional[str]

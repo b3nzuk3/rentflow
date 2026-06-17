@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from uuid import UUID
 
 from app.db.database import get_db
 from app.db.models import Payment, Lease, UserRole, PaymentStatus
@@ -48,7 +47,7 @@ async def create_payment(
 
 @router.patch("/{payment_id}/verify", response_model=PaymentResponse)
 async def verify_payment(
-    payment_id: UUID,
+    payment_id: str,
     data: PaymentVerify,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(require_roles(UserRole.ORG_OWNER, UserRole.PROPERTY_MANAGER, UserRole.ACCOUNTANT)),
@@ -65,7 +64,7 @@ async def verify_payment(
 
 
 @router.get("/{payment_id}", response_model=PaymentResponse)
-async def get_payment(payment_id: UUID, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
+async def get_payment(payment_id: str, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
     result = await db.execute(select(Payment).where(Payment.id == payment_id))
     payment = result.scalar_one_or_none()
     if not payment:

@@ -1,13 +1,12 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import AuditLog
-from uuid import UUID
 from typing import Optional
 
 
 async def log_action(
     db: AsyncSession,
-    organization_id: UUID,
-    user_id: Optional[UUID],
+    organization_id: str,
+    user_id: Optional[str],
     action: str,
     entity: str,
     previous_value: Optional[str] = None,

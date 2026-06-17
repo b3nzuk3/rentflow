@@ -1,5 +1,4 @@
 from pydantic import BaseModel
-from uuid import UUID
 from typing import Optional
 from datetime import datetime
 from app.db.models import UnitStatus
@@ -12,15 +11,15 @@ class UnitBase(BaseModel):
 
 
 class UnitCreate(UnitBase):
-    property_id: UUID
-    block_id: Optional[UUID] = None
+    property_id: str
+    block_id: Optional[str] = None
 
 
 class UnitUpdate(BaseModel):
     unit_code: Optional[str] = None
     rent_amount: Optional[int] = None
     status: Optional[UnitStatus] = None
-    block_id: Optional[UUID] = None
+    block_id: Optional[str] = None
 
 
 class UnitStatusUpdate(BaseModel):
@@ -28,10 +27,10 @@ class UnitStatusUpdate(BaseModel):
 
 
 class UnitResponse(BaseModel):
-    id: UUID
-    organization_id: UUID
-    property_id: UUID
-    block_id: Optional[UUID]
+    id: str
+    organization_id: str
+    property_id: str
+    block_id: Optional[str]
     unit_code: str
     rent_amount: int
     status: UnitStatus

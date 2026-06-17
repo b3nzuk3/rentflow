@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
-from uuid import UUID
 from typing import Optional
 
 from app.db.database import get_db
@@ -14,7 +13,7 @@ router = APIRouter()
 
 @router.get("/", response_model=list[PropertyResponse])
 async def list_properties(
-    org_id: Optional[UUID] = Query(None),
+    org_id: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
@@ -46,7 +45,7 @@ async def create_property(
 
 @router.get("/{property_id}", response_model=PropertyResponse)
 async def get_property(
-    property_id: UUID,
+    property_id: str,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
@@ -59,7 +58,7 @@ async def get_property(
 
 @router.patch("/{property_id}", response_model=PropertyResponse)
 async def update_property(
-    property_id: UUID,
+    property_id: str,
     data: PropertyUpdate,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(require_roles(UserRole.ORG_OWNER, UserRole.PROPERTY_MANAGER)),
@@ -76,7 +75,7 @@ async def update_property(
 
 @router.delete("/{property_id}")
 async def delete_property(
-    property_id: UUID,
+    property_id: str,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(require_roles(UserRole.ORG_OWNER, UserRole.PROPERTY_MANAGER)),
 ):

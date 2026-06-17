@@ -19,7 +19,7 @@ class LoginResponse(BaseModel):
 
 
 class SignupRequest(BaseModel):
-    organization_id: UUID
+    organization_id: str
     first_name: str
     last_name: str
     email: EmailStr

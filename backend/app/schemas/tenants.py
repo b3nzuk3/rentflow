@@ -1,5 +1,4 @@
 from pydantic import BaseModel, EmailStr
-from uuid import UUID
 from typing import Optional
 from datetime import datetime
 from app.db.models import TenantStatus
@@ -27,8 +26,8 @@ class TenantUpdate(BaseModel):
 
 
 class TenantResponse(BaseModel):
-    id: UUID
-    organization_id: UUID
+    id: str
+    organization_id: str
     first_name: str
     last_name: str
     phone_number: str

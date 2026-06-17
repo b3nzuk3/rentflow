@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
-from uuid import UUID
 from typing import Optional
 
 from app.db.database import get_db
@@ -14,8 +13,8 @@ router = APIRouter()
 
 @router.get("/", response_model=list[UnitResponse])
 async def list_units(
-    property_id: Optional[UUID] = Query(None),
-    block_id: Optional[UUID] = Query(None),
+    property_id: Optional[str] = Query(None),
+    block_id: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
@@ -54,7 +53,7 @@ async def create_unit(
 
 @router.get("/{unit_id}", response_model=UnitResponse)
 async def get_unit(
-    unit_id: UUID,
+    unit_id: str,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
@@ -67,7 +66,7 @@ async def get_unit(
 
 @router.patch("/{unit_id}", response_model=UnitResponse)
 async def update_unit(
-    unit_id: UUID,
+    unit_id: str,
     data: UnitUpdate,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(require_roles(UserRole.ORG_OWNER, UserRole.PROPERTY_MANAGER)),
@@ -84,7 +83,7 @@ async def update_unit(
 
 @router.patch("/{unit_id}/status", response_model=UnitResponse)
 async def update_unit_status(
-    unit_id: UUID,
+    unit_id: str,
     data: UnitStatusUpdate,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
@@ -100,7 +99,7 @@ async def update_unit_status(
 
 @router.delete("/{unit_id}")
 async def delete_unit(
-    unit_id: UUID,
+    unit_id: str,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(require_roles(UserRole.ORG_OWNER, UserRole.PROPERTY_MANAGER)),
 ):

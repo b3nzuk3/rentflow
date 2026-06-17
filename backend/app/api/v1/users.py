@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from uuid import UUID
 
 from app.db.database import get_db
 from app.db.models import User, UserRole
@@ -45,7 +44,7 @@ async def invite_user(
 
 
 @router.patch("/{user_id}/toggle")
-async def toggle_user_active(user_id: UUID, db: AsyncSession = Depends(get_db),
+async def toggle_user_active(user_id: str, db: AsyncSession = Depends(get_db),
                               current_user=Depends(require_roles(UserRole.ORG_OWNER, UserRole.PROPERTY_MANAGER))):
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()

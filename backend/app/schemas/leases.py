@@ -1,5 +1,4 @@
 from pydantic import BaseModel
-from uuid import UUID
 from typing import Optional
 from datetime import datetime
 from app.db.models import LeaseStatus
@@ -13,8 +12,8 @@ class LeaseBase(BaseModel):
 
 
 class LeaseCreate(LeaseBase):
-    tenant_id: UUID
-    unit_id: UUID
+    tenant_id: str
+    unit_id: str
 
 
 class LeaseUpdate(BaseModel):
@@ -26,10 +25,10 @@ class LeaseUpdate(BaseModel):
 
 
 class LeaseResponse(BaseModel):
-    id: UUID
-    organization_id: UUID
-    tenant_id: UUID
-    unit_id: UUID
+    id: str
+    organization_id: str
+    tenant_id: str
+    unit_id: str
     monthly_rent: int
     security_deposit: int
     start_date: str
