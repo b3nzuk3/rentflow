@@ -48,16 +48,10 @@ export default function DashboardPage() {
       const summaryRes = await api.get("/reports/summary");
       setSummary(summaryRes.data);
 
-      // Try to load organization
+      // Load organization
       try {
-        // We know the org_id from the user data
-        if (userStr) {
-          const u = JSON.parse(userStr);
-          if (u.organization_id) {
-            const orgRes = await api.get(`/organizations/${u.organization_id}`);
-            setOrganization(orgRes.data);
-          }
-        }
+        const orgRes = await api.get("/organizations/me");
+        setOrganization(orgRes.data);
       } catch {
         // Org endpoint might not exist yet, that's ok
       }

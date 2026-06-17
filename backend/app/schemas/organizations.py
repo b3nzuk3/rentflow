@@ -1,5 +1,4 @@
-from pydantic import BaseModel, EmailStr
-from uuid import UUID
+from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
 from app.db.models import SubscriptionPlan
@@ -21,7 +20,7 @@ class OrganizationUpdate(BaseModel):
 
 
 class OrganizationResponse(OrganizationBase):
-    id: UUID
+    id: str
     is_active: bool
     created_at: datetime
     updated_at: datetime
