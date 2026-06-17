@@ -5,8 +5,8 @@ from functools import lru_cache
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
-    # Database
-    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/rentflow"
+    # Database — defaults to SQLite for local dev, override with .env for PostgreSQL
+    DATABASE_URL: str = "sqlite+aiosqlite:///./rentflow.db"
 
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"
@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     # Application
     APP_NAME: str = "RentFlow"
     APP_VERSION: str = "1.0.0"
-    DEBUG: bool = False
+    DEBUG: bool = True
 
     class Config:
         env_file = ".env"

@@ -1,5 +1,4 @@
 from pydantic import BaseModel, EmailStr
-from uuid import UUID
 from typing import Optional
 
 
@@ -12,11 +11,11 @@ class LoginResponse(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
-    user_id: UUID
+    user_id: str
     role: str
     first_name: str
     last_name: str
-    organization_id: UUID
+    organization_id: str
 
 
 class SignupRequest(BaseModel):

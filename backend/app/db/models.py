@@ -1,10 +1,8 @@
 from sqlalchemy import (
     Column, String, Boolean, Integer, DateTime, ForeignKey, Text, Enum as SAEnum
 )
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-import uuid
 import enum
 
 from app.db.database import Base
@@ -83,7 +81,7 @@ class NotificationStatus(str, enum.Enum):
 class Organization(Base):
     __tablename__ = "organizations"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(String(36), primary_key=True)
     name = Column(String(255), nullable=False)
     subscription_plan = Column(SAEnum(SubscriptionPlan), default=SubscriptionPlan.STARTER)
     is_active = Column(Boolean, default=True)
@@ -103,8 +101,8 @@ class Organization(Base):
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    id = Column(String(36), primary_key=True)
+    organization_id = Column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
     first_name = Column(String(100), nullable=False)
     last_name = Column(String(100), nullable=False)
     phone_number = Column(String(20), nullable=False)
@@ -121,8 +119,8 @@ class User(Base):
 class Property(Base):
     __tablename__ = "properties"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    id = Column(String(36), primary_key=True)
+    organization_id = Column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
     name = Column(String(255), nullable=False)
     location = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
@@ -139,8 +137,8 @@ class Property(Base):
 class Block(Base):
     __tablename__ = "blocks"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    property_id = Column(UUID(as_uuid=True), ForeignKey("properties.id", ondelete="CASCADE"), nullable=False)
+    id = Column(String(36), primary_key=True)
+    property_id = Column(String(36), ForeignKey("properties.id", ondelete="CASCADE"), nullable=False)
     name = Column(String(100), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
@@ -152,10 +150,10 @@ class Block(Base):
 class Unit(Base):
     __tablename__ = "units"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
-    property_id = Column(UUID(as_uuid=True), ForeignKey("properties.id", ondelete="CASCADE"), nullable=False)
-    block_id = Column(UUID(as_uuid=True), ForeignKey("blocks.id", ondelete="SET NULL"), nullable=True)
+    id = Column(String(36), primary_key=True)
+    organization_id = Column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    property_id = Column(String(36), ForeignKey("properties.id", ondelete="CASCADE"), nullable=False)
+    block_id = Column(String(36), ForeignKey("blocks.id", ondelete="SET NULL"), nullable=True)
     unit_code = Column(String(50), nullable=False)
     rent_amount = Column(Integer, nullable=False, default=0)
     status = Column(SAEnum(UnitStatus), default=UnitStatus.VACANT)
@@ -171,8 +169,8 @@ class Unit(Base):
 class Tenant(Base):
     __tablename__ = "tenants"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    id = Column(String(36), primary_key=True)
+    organization_id = Column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
     first_name = Column(String(100), nullable=False)
     last_name = Column(String(100), nullable=False)
     phone_number = Column(String(20), nullable=False)
@@ -189,10 +187,10 @@ class Tenant(Base):
 class Lease(Base):
     __tablename__ = "leases"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
-    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
-    unit_id = Column(UUID(as_uuid=True), ForeignKey("units.id", ondelete="CASCADE"), nullable=False)
+    id = Column(String(36), primary_key=True)
+    organization_id = Column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    tenant_id = Column(String(36), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    unit_id = Column(String(36), ForeignKey("units.id", ondelete="CASCADE"), nullable=False)
     monthly_rent = Column(Integer, nullable=False, default=0)
     security_deposit = Column(Integer, nullable=False, default=0)
     start_date = Column(String(10), nullable=False)
@@ -210,9 +208,9 @@ class Lease(Base):
 class Payment(Base):
     __tablename__ = "payments"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
-    lease_id = Column(UUID(as_uuid=True), ForeignKey("leases.id", ondelete="CASCADE"), nullable=False)
+    id = Column(String(36), primary_key=True)
+    organization_id = Column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    lease_id = Column(String(36), ForeignKey("leases.id", ondelete="CASCADE"), nullable=False)
     amount = Column(Integer, nullable=False, default=0)
     payment_method = Column(SAEnum(PaymentMethod), nullable=False)
     transaction_code = Column(String(50), unique=True, nullable=False, index=True)
@@ -232,9 +230,9 @@ class Payment(Base):
 class AuditLog(Base):
     __tablename__ = "audit_logs"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    id = Column(String(36), primary_key=True)
+    organization_id = Column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     action = Column(String(100), nullable=False)
     entity = Column(String(100), nullable=False)
     previous_value = Column(Text, nullable=True)
@@ -248,8 +246,8 @@ class AuditLog(Base):
 class Notification(Base):
     __tablename__ = "notifications"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    id = Column(String(36), primary_key=True)
+    organization_id = Column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
     channel = Column(SAEnum(NotificationChannel), nullable=False)
     trigger_type = Column(String(100), nullable=False)
     recipient = Column(String(255), nullable=False)
@@ -263,8 +261,8 @@ class Notification(Base):
 class Invitation(Base):
     __tablename__ = "invitations"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    id = Column(String(36), primary_key=True)
+    organization_id = Column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
     email = Column(String(255), nullable=False)
     phone = Column(String(20), nullable=True)
     token = Column(String(255), unique=True, nullable=False)
