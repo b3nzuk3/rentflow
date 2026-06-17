@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useAuthStore } from "@/stores/authStore";
-import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
-import type { DashboardSummary, Organization, LandlordTab } from "@/types";
+import type { DashboardSummary, Organization, LandlordTab, User } from "@/types";
 import { Header } from "@/components/layout/Header";
 import { LandlordDashboard } from "@/components/dashboard/LandlordDashboard";
 import { TenantDashboard } from "@/components/dashboard/TenantDashboard";
@@ -16,35 +15,59 @@ import { LandlordReports } from "@/components/reports/LandlordReports";
 import { SaaSSettings } from "@/components/settings/SaaSSettings";
 import { NotificationsLog } from "@/components/notifications/NotificationsLog";
 import { AuditLogViewer } from "@/components/audit/AuditLogViewer";
+import { useRouter } from "next/navigation";
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { user, isLoggedIn, currentRole, setCurrentRole, organization, setOrganization } = useAuthStore();
+  const { user, isLoggedIn, currentRole, setCurrentRole, organization, setOrganization, setUser, setLoggedIn } = useAuthStore();
   const [activeTab, setActiveTab] = useState<LandlordTab>("dashboard");
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!isLoggedIn) {
-      const storedUser = localStorage.getItem("access_token");
-      if (!storedUser) {
-        router.push("/");
-        return;
-      }
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+      router.push("/");
+      return;
     }
     loadData();
-  }, [isLoggedIn]);
+  }, []);
 
   const loadData = async () => {
     try {
-      const [summaryRes, orgRes] = await Promise.all([
-        api.get("/reports/summary"),
-        api.get("/organizations/me").catch(() => null),
-      ]);
+      // Load user profile
+      const userStr = localStorage.getItem("user");
+      if (userStr) {
+        const userData = JSON.parse(userStr);
+        setUser(userData as User);
+        setLoggedIn(true);
+      }
+
+      // Load dashboard summary
+      const summaryRes = await api.get("/reports/summary");
       setSummary(summaryRes.data);
-      if (orgRes) setOrganization(orgRes.data);
-    } catch (err) {
+
+      // Try to load organization
+      try {
+        // We know the org_id from the user data
+        if (userStr) {
+          const u = JSON.parse(userStr);
+          if (u.organization_id) {
+            const orgRes = await api.get(`/organizations/${u.organization_id}`);
+            setOrganization(orgRes.data);
+          }
+        }
+      } catch {
+        // Org endpoint might not exist yet, that's ok
+      }
+    } catch (err: any) {
       console.error("Failed to load dashboard data", err);
+      if (err.response?.status === 401) {
+        router.push("/");
+        return;
+      }
+      setError("Failed to load data. Is the backend running on port 8000?");
     } finally {
       setLoading(false);
     }
@@ -54,7 +77,13 @@ export default function DashboardPage() {
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
     localStorage.removeItem("user");
+    setUser(null);
+    setLoggedIn(false);
     router.push("/");
+  };
+
+  const handleRoleChange = (role: string) => {
+    setCurrentRole(role as any);
   };
 
   if (loading) {
@@ -68,13 +97,26 @@ export default function DashboardPage() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background-custom">
+        <div className="text-center max-w-md p-8">
+          <p className="text-sm font-bold text-red-600 mb-4">{error}</p>
+          <button onClick={() => { setError(""); setLoading(true); loadData(); }} className="px-4 py-2 bg-primary text-white rounded-xl font-bold text-sm">
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const isLandlord = currentRole !== "tenant" && currentRole !== "super_admin";
 
   return (
     <div className="min-h-screen bg-background-custom">
       <Header
         currentRole={currentRole}
-        onChangeRole={setCurrentRole}
+        onChangeRole={handleRoleChange}
         activeTab={activeTab}
         onTabChange={setActiveTab}
         isLandlord={isLandlord}
