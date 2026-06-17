@@ -1,14 +1,46 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Building, CreditCard, AlertTriangle, Users, Plus, MapPin, ChevronRight, CheckCircle, Inbox } from "lucide-react";
-import type { DashboardSummary } from "@/types";
+import type { DashboardSummary, Property, Unit } from "@/types";
+import { getProperties, getUnits } from "@/lib/api";
 
 interface Props {
   summary: DashboardSummary;
 }
 
+interface PropertyWithUnits extends Property {
+  units: Unit[];
+  occupancyRate: number;
+}
+
 export function LandlordDashboard({ summary }: Props) {
   const occupancyRate = summary.occupancy_rate;
+  const [properties, setProperties] = useState<PropertyWithUnits[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchPortfolio() {
+      try {
+        const props = await getProperties();
+        const units = await getUnits();
+
+        const propsWithUnits: PropertyWithUnits[] = props.map((prop) => {
+          const propUnits = units.filter((u) => u.property_id === prop.id);
+          const occupied = propUnits.filter((u) => u.status === "Occupied").length;
+          const rate = propUnits.length > 0 ? Math.round((occupied / propUnits.length) * 100) : 0;
+          return { ...prop, units: propUnits, occupancyRate: rate };
+        });
+
+        setProperties(propsWithUnits);
+      } catch (err) {
+        console.error("Failed to fetch portfolio:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchPortfolio();
+  }, []);
 
   return (
     <div className="space-y-8 animate-fade-in text-left">
@@ -107,11 +139,81 @@ export function LandlordDashboard({ summary }: Props) {
           <div className="flex justify-between items-center">
             <h4 className="text-lg font-extrabold tracking-tight text-on-surface">Portfolio Overview</h4>
           </div>
-          <div className="flat-card rounded-2xl p-6 text-center">
-            <Building className="w-12 h-12 text-on-surface-variant/30 mx-auto mb-3" />
-            <p className="text-sm font-bold text-on-surface-variant">Properties: {summary.total_properties}</p>
-<p className="text-xs text-on-surface-variant mt-1">Total Units: {summary.total_units} | Vacant: {summary.vacant_units}</p>
-          </div>
+
+          {loading ? (
+            <div className="flat-card rounded-2xl p-6 text-center">
+              <p className="text-sm font-bold text-on-surface-variant">Loading properties...</p>
+            </div>
+          ) : properties.length === 0 ? (
+            <div className="flat-card rounded-2xl p-6 text-center">
+              <Building className="w-12 h-12 text-on-surface-variant/30 mx-auto mb-3" />
+              <p className="text-sm font-bold text-on-surface-variant">No properties found</p>
+              <p className="text-xs text-on-surface-variant mt-1">Add a property to get started.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {properties.map((prop) => (
+                <div key={prop.id} className="flat-card rounded-2xl p-5 relative overflow-hidden group">
+                  <div className="absolute -right-10 -top-10 w-32 h-32 bg-primary/5 rounded-full blur-xl transition-transform group-hover:scale-125 duration-500" />
+                  <div className="flex justify-between items-start mb-4 relative z-10">
+                    <div>
+                      <h5 className="text-base font-extrabold text-on-surface tracking-tight">{prop.name}</h5>
+                      <div className="flex items-center gap-1 mt-1">
+                        <MapPin className="w-3 h-3 text-on-surface-variant" />
+                        <p className="text-xs font-semibold text-on-surface-variant">{prop.location}</p>
+                      </div>
+                    </div>
+                    <span className={`text-xs font-bold font-mono px-2.5 py-1 rounded-full ${
+                      prop.status === "Active"
+                        ? "bg-emerald-50 text-emerald-700"
+                        : "bg-surface-container text-on-surface-variant"
+                    }`}>
+                      {prop.status}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 relative z-10">
+                    <div className="bg-surface-container/50 rounded-xl p-3">
+                      <p className="text-xs font-bold font-mono uppercase tracking-wider text-on-surface-variant">Units</p>
+                      <p className="text-xl font-extrabold text-on-surface mt-0.5">{prop.units.length}</p>
+                    </div>
+                    <div className="bg-surface-container/50 rounded-xl p-3">
+                      <p className="text-xs font-bold font-mono uppercase tracking-wider text-on-surface-variant">Occupancy</p>
+                      <p className={`text-xl font-extrabold mt-0.5 ${
+                        prop.occupancyRate >= 80 ? "text-emerald-600" :
+                        prop.occupancyRate >= 50 ? "text-amber-600" : "text-on-surface"
+                      }`}>
+                        {prop.occupancyRate}%
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="w-full bg-surface-container rounded-full h-1 mt-3 relative z-10">
+                    <div
+                      className={`h-1 rounded-full transition-all duration-700 ${
+                        prop.occupancyRate >= 80 ? "bg-emerald-500" :
+                        prop.occupancyRate >= 50 ? "bg-amber-500" : "bg-primary"
+                      }`}
+                      style={{ width: `${prop.occupancyRate}%` }}
+                    />
+                  </div>
+
+                  {prop.description && (
+                    <p className="text-xs text-on-surface-variant mt-3 line-clamp-2 relative z-10">{prop.description}</p>
+                  )}
+
+                  <div className="flex items-center justify-between mt-4 pt-3 border-t border-outline-variant/10 relative z-10">
+                    <span className="text-xs font-mono text-on-surface-variant">
+                      {prop.units.filter((u) => u.status === "Occupied").length} occupied / {prop.units.filter((u) => u.status === "Vacant").length} vacant
+                    </span>
+                    <button className="flex items-center gap-1 text-xs font-bold text-primary hover:underline">
+                      View Details <ChevronRight className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Activity Stream */}

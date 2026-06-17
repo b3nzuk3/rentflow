@@ -1,5 +1,5 @@
 import axios from "axios";
-import { LoginResponse } from "@/types";
+import { LoginResponse, Property, Unit, Tenant, Lease, Payment } from "@/types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 
@@ -68,6 +68,17 @@ export function logout() {
   localStorage.removeItem("user");
 }
 
+export async function getProperties(): Promise<Property[]> {
+  const { data } = await api.get("/properties");
+  return data;
+}
+
+export async function getUnits(propertyId?: string): Promise<Unit[]> {
+  const params = propertyId ? { property_id: propertyId } : {};
+  const { data } = await api.get("/units", { params });
+  return data;
+}
+
 export function getStoredUser() {
   const user = localStorage.getItem("user");
   return user ? JSON.parse(user) : null;
@@ -75,4 +86,70 @@ export function getStoredUser() {
 
 export function storeUser(user: Record<string, unknown> | LoginResponse) {
   localStorage.setItem("user", JSON.stringify(user));
+}
+
+// ── Tenants ──────────────────────────────────────────────────────────────────
+
+export async function getTenants(): Promise<Tenant[]> {
+  const { data } = await api.get("/tenants");
+  return data;
+}
+
+export async function createTenant(payload: {
+  first_name: string;
+  last_name: string;
+  phone_number: string;
+  email: string;
+  national_id?: string;
+}): Promise<Tenant> {
+  const { data } = await api.post("/tenants", payload);
+  return data;
+}
+
+// ── Leases ───────────────────────────────────────────────────────────────────
+
+export async function getLeases(): Promise<Lease[]> {
+  const { data } = await api.get("/leases");
+  return data;
+}
+
+export async function createLease(payload: {
+  tenant_id: string;
+  unit_id: string;
+  monthly_rent: number;
+  security_deposit: number;
+  start_date: string;
+  end_date: string;
+}): Promise<Lease> {
+  const { data } = await api.post("/leases", payload);
+  return data;
+}
+
+export async function signLease(leaseId: string): Promise<Lease> {
+  const { data } = await api.patch(`/leases/${leaseId}/sign`);
+  return data;
+}
+
+export async function deleteLease(leaseId: string): Promise<void> {
+  await api.delete(`/leases/${leaseId}`);
+}
+
+// ── Payments ─────────────────────────────────────────────────────────────────
+
+export async function getPayments(status?: string): Promise<Payment[]> {
+  const params = status && status !== "All" ? { status } : {};
+  const { data } = await api.get("/payments", { params });
+  return data;
+}
+
+export async function verifyPayment(
+  paymentId: string,
+  status: "Verified" | "Rejected",
+  verificationNotes: string
+): Promise<Payment> {
+  const { data } = await api.patch(`/payments/${paymentId}/verify`, {
+    status,
+    verification_notes: verificationNotes,
+  });
+  return data;
 }
