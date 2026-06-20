@@ -304,11 +304,69 @@ export function SaaSSettings() {
           {/* 3. USERS & ROLES */}
           {activeTab === "users_roles" && (
             <div className="space-y-6">
-              <div className="flex justify-between items-center">
-                <h3 className="text-sm font-extrabold text-on-surface">Organization Users</h3>
-                <button className="px-4 py-2 bg-primary text-white rounded-xl font-bold text-xs flex items-center gap-1.5"><Users className="w-3.5 h-3.5" /> Invite User</button>
+              {/* Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-zinc-150">
+                <div>
+                  <h3 className="text-sm font-extrabold text-on-surface">Registered Organization Users</h3>
+                  <p className="text-[10px] text-zinc-400 font-mono font-bold uppercase tracking-wider mt-0.5">Isolated Security Partitions</p>
+                </div>
+                <div className="flex gap-2">
+                  <button className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-extrabold font-mono text-[10px] uppercase tracking-wider rounded-xl border border-rose-150 shrink-0">Transfer Ownership</button>
+                  <button className="px-4 py-2 bg-primary hover:bg-shadow text-white rounded-xl font-extrabold font-mono text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-sm"><Plus className="w-4 h-4 stroke-[3px]" /> Invite User</button>
+                </div>
               </div>
-              <div className="bg-slate-50 rounded-xl p-8 text-center"><Users className="w-10 h-10 text-zinc-300 mx-auto mb-2" /><p className="text-xs font-bold text-on-surface-variant">User management coming soon</p></div>
+
+              {/* Users Table */}
+              <div className="overflow-x-auto rounded-xl border border-zinc-150">
+                <table className="w-full text-left border-collapse">
+                  <thead className="bg-zinc-50 border-b border-zinc-150">
+                    <tr>
+                      <th className="px-4 py-3 text-[10px] font-bold font-mono text-zinc-550 uppercase tracking-wider">User Operating Name</th>
+                      <th className="px-4 py-3 text-[10px] font-bold font-mono text-zinc-550 uppercase tracking-wider">Core RBAC Role</th>
+                      <th className="px-4 py-3 text-[10px] font-bold font-mono text-zinc-550 uppercase tracking-wider">Status</th>
+                      <th className="px-4 py-3 text-[10px] font-bold font-mono text-zinc-550 uppercase tracking-wider">Last Sync</th>
+                      <th className="px-4 py-3 text-[10px] font-bold font-mono text-zinc-550 uppercase tracking-wider">Properties</th>
+                      <th className="px-4 py-3 text-[10px] font-bold font-mono text-zinc-550 uppercase tracking-wider text-right">Controls</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-150 select-text">
+                    {[
+                      { name: "Fatuma Ali", email: "fatuma.ali@amani.com", role: "org_owner", active: true, lastSync: "Nairobi • Online", props: "Global Clearance Tier", owner: true },
+                      { name: "Mwangi Karanja", email: "mwangi.k@amani.com", role: "property_manager", active: true, lastSync: "10 days ago", props: "Global Clearance Tier", owner: false },
+                      { name: "Grace Kendi", email: "grace.kendi@amani.com", role: "accountant", active: true, lastSync: "3 days ago", props: "Global Clearance Tier", owner: false },
+                      { name: "Josphat Njoroge", email: "j.njoroge@amani.com", role: "caretaker", active: true, lastSync: "5 days ago", props: "Global Clearance Tier", owner: false },
+                      { name: "Jane Doe", email: "jane.doe@gmail.com", role: "tenant", active: true, lastSync: "1 day ago", props: "Unit B12", owner: false },
+                    ].map((user, i) => (
+                      <tr key={i} className="hover:bg-slate-50/40">
+                        <td className="px-4 py-3.5">
+                          <p className="font-extrabold text-xs text-on-surface leading-normal">{user.name}</p>
+                          <p className="text-[10px] text-zinc-450 font-mono mt-0.5">{user.email}</p>
+                        </td>
+                        <td className="px-4 py-3.5">
+                          <span className="inline-block px-2 py-0.5 rounded font-mono text-[9px] uppercase tracking-wide bg-neutral-100 text-zinc-800 font-bold">{user.role.replace("_", " ")}</span>
+                        </td>
+                        <td className="px-4 py-3.5">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold leading-none ${user.active ? "bg-emerald-50 text-[#006c0c]" : "bg-red-50 text-red-700"}`}>
+                            <span className={`w-1 h-1 rounded-full ${user.active ? "bg-emerald-500" : "bg-red-500"}`} />
+                            {user.active ? "Active" : "Suspended"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3.5 text-xs text-zinc-500 font-mono font-bold uppercase">{user.lastSync}</td>
+                        <td className="px-4 py-3.5 text-xs text-zinc-700 font-semibold truncate max-w-40">{user.props}</td>
+                        <td className="px-4 py-3.5 text-right font-mono text-[10px]">
+                          {user.owner ? (
+                            <span className="text-zinc-400 italic">No suspended override</span>
+                          ) : (
+                            <div className="flex items-center justify-end gap-2">
+                              <button className="hover:underline font-bold hover:text-red-600 text-zinc-650">{user.active ? "Suspend" : "Activate"}</button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 
