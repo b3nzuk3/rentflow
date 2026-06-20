@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from typing import Optional
 
 from app.db.database import get_db
 from app.db.models import Block, UserRole
@@ -10,8 +11,11 @@ router = APIRouter()
 
 
 @router.get("/")
-async def list_blocks(property_id: str, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
-    result = await db.execute(select(Block).where(Block.property_id == property_id))
+async def list_blocks(property_id: Optional[str] = Query(None), db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
+    query = select(Block)
+    if property_id:
+        query = query.where(Block.property_id == property_id)
+    result = await db.execute(query)
     return result.scalars().all()
 
 

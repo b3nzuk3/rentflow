@@ -36,10 +36,11 @@ export function LandlordProperties() {
   const loadData = async () => {
     try {
       const [propsRes, blocksRes, unitsRes] = await Promise.all([
-        api.get("/properties"),
-        api.get("/blocks"),
-        api.get("/units"),
+        api.get("/properties").catch(e => { console.error("Properties API error:", e.response?.data || e.message); return { data: [] }; }),
+        api.get("/blocks").catch(e => { console.error("Blocks API error:", e.response?.data || e.message); return { data: [] }; }),
+        api.get("/units").catch(e => { console.error("Units API error:", e.response?.data || e.message); return { data: [] }; }),
       ]);
+      console.log("Loaded:", propsRes.data.length, "properties,", blocksRes.data.length, "blocks,", unitsRes.data.length, "units");
       setProperties(propsRes.data);
       setBlocks(blocksRes.data);
       setUnits(unitsRes.data);
