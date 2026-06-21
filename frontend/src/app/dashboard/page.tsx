@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useAuthStore } from "@/stores/authStore";
 import { api } from "@/lib/api";
 import type { DashboardSummary, Organization, LandlordTab, User } from "@/types";
-import { Header } from "@/components/layout/Header";
+import { Sidebar } from "@/components/layout/Sidebar";
 import { LandlordDashboard } from "@/components/dashboard/LandlordDashboard";
 import { TenantDashboard } from "@/components/dashboard/TenantDashboard";
 import { SuperAdminDashboard } from "@/components/dashboard/SuperAdminDashboard";
@@ -36,7 +36,6 @@ export default function DashboardPage() {
 
   const loadData = async () => {
     try {
-      // Load user profile
       const userStr = localStorage.getItem("user");
       if (userStr) {
         const userData = JSON.parse(userStr);
@@ -44,16 +43,14 @@ export default function DashboardPage() {
         setLoggedIn(true);
       }
 
-      // Load dashboard summary
       const summaryRes = await api.get("/reports/summary");
       setSummary(summaryRes.data);
 
-      // Load organization
       try {
         const orgRes = await api.get("/organizations/me");
         setOrganization(orgRes.data);
       } catch {
-        // Org endpoint might not exist yet, that's ok
+        // Org endpoint might not exist yet
       }
     } catch (err: any) {
       console.error("Failed to load dashboard data", err);
@@ -82,8 +79,8 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background-custom">
-        <div className="text-center">
+      <div className="min-h-screen flex items-center justify-center bg-background-custom lg:pl-64">
+        <div className="text-center pt-16 lg:pt-0">
           <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-4" />
           <p className="text-sm font-bold text-on-surface-variant">Loading RentFlow...</p>
         </div>
@@ -93,8 +90,8 @@ export default function DashboardPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background-custom">
-        <div className="text-center max-w-md p-8">
+      <div className="min-h-screen flex items-center justify-center bg-background-custom lg:pl-64">
+        <div className="text-center max-w-md p-8 pt-16 lg:pt-0">
           <p className="text-sm font-bold text-red-600 mb-4">{error}</p>
           <button onClick={() => { setError(""); setLoading(true); loadData(); }} className="px-4 py-2 bg-primary text-white rounded-xl font-bold text-sm">
             Retry
@@ -108,7 +105,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-background-custom">
-      <Header
+      <Sidebar
         currentRole={currentRole}
         onChangeRole={handleRoleChange}
         activeTab={activeTab}
@@ -119,20 +116,23 @@ export default function DashboardPage() {
         pendingCount={summary?.pending_payments || 0}
       />
 
-      <main className="px-6 py-8 md:px-12 max-w-7xl mx-auto">
-        {currentRole === "tenant" && <TenantDashboard />}
-        {currentRole === "super_admin" && <SuperAdminDashboard />}
+      {/* Main content with left offset for sidebar on desktop */}
+      <main className="lg:ml-64 min-h-screen pt-16 lg:pt-0">
+        <div className="px-6 py-8 md:px-10 max-w-7xl mx-auto">
+          {currentRole === "tenant" && <TenantDashboard />}
+          {currentRole === "super_admin" && <SuperAdminDashboard />}
 
-        {isLandlord && activeTab === "dashboard" && summary && (
-          <LandlordDashboard summary={summary} />
-        )}
-        {isLandlord && activeTab === "properties" && <LandlordProperties />}
-        {isLandlord && activeTab === "leases" && <LandlordLeases />}
-        {isLandlord && activeTab === "payments" && <LandlordPayments />}
-        {isLandlord && activeTab === "reports" && <LandlordReports />}
-        {isLandlord && activeTab === "settings" && <SaaSSettings />}
-        {isLandlord && activeTab === "notifications" && <NotificationsLog />}
-        {isLandlord && activeTab === "audit_logs" && <AuditLogViewer />}
+          {isLandlord && activeTab === "dashboard" && summary && (
+            <LandlordDashboard summary={summary} />
+          )}
+          {isLandlord && activeTab === "properties" && <LandlordProperties />}
+          {isLandlord && activeTab === "leases" && <LandlordLeases />}
+          {isLandlord && activeTab === "payments" && <LandlordPayments />}
+          {isLandlord && activeTab === "reports" && <LandlordReports />}
+          {isLandlord && activeTab === "settings" && <SaaSSettings />}
+          {isLandlord && activeTab === "notifications" && <NotificationsLog />}
+          {isLandlord && activeTab === "audit_logs" && <AuditLogViewer />}
+        </div>
       </main>
     </div>
   );
