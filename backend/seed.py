@@ -27,6 +27,11 @@ async def seed():
         session.add(Organization(
             id=org_id, name="RentFlow Demo Properties",
             subscription_plan=SubscriptionPlan.GROWTH, is_active=True,
+            phone="+254 722 000000", email="info@rentflow.demo",
+            address="Westlands Road, Westlands, Nairobi, Kenya",
+            website="https://rentflow.demo", tax_pin="A001234567B",
+            reg_number="CPR/2021/84725",
+            business_type="Commercial & Residential Real Estate",
         ))
 
         # ── Users ──
