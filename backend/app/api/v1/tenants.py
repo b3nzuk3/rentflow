@@ -133,7 +133,9 @@ async def create_tenant(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(require_roles(UserRole.ORG_OWNER, UserRole.PROPERTY_MANAGER)),
 ):
+    import uuid
     tenant = Tenant(
+        id=str(uuid.uuid4()),
         organization_id=current_user.organization_id,
         first_name=data.first_name,
         last_name=data.last_name,

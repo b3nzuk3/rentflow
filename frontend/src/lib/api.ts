@@ -1,7 +1,7 @@
 import axios from "axios";
 import { LoginResponse, Property, Unit, Tenant, Lease, Payment } from "@/types";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+const API_BASE = 'http://localhost:8000/api/v1';
 
 export const api = axios.create({
   baseURL: API_BASE,
@@ -12,6 +12,12 @@ api.interceptors.request.use((config) => {
   const token = localStorage.getItem("access_token");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+  // FastAPI routes registered as "/" need trailing slash for mutating methods
+  if (['POST', 'PATCH', 'DELETE'].includes(config.method?.toUpperCase() || '')) {
+    if (config.url && !config.url.endsWith('/')) {
+      config.url = config.url + '/';
+    }
   }
   return config;
 });

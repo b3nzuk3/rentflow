@@ -6,7 +6,7 @@ from app.db.database import get_db
 from app.db.models import AuditLog
 from app.core.security import get_current_user
 
-router = APIRouter()
+router = APIRouter(redirect_slashes=False)
 
 
 @router.get("/")

@@ -13,7 +13,7 @@ from app.schemas.auth import (
     TokenRefreshRequest, TokenResponse
 )
 
-router = APIRouter()
+router = APIRouter(redirect_slashes=False)
 
 
 @router.post("/login", response_model=LoginResponse)

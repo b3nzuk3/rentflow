@@ -103,21 +103,29 @@ export function LandlordProperties() {
     } catch (err) { console.error("Failed to add unit", err); }
   };
 
-  const handleDeleteUnit = async (unitId: string) => {
-    if (!confirm("Delete this unit?")) return;
-    try {
-      await api.delete(`/units/${unitId}`);
-      loadData();
-    } catch (err) { console.error("Failed to delete unit", err); }
+  // Delete confirmation
+  const [deleteTarget, setDeleteTarget] = useState<{ type: 'unit' | 'block'; id: string; name: string } | null>(null);
+
+  const handleDeleteUnit = (unitId: string, unitCode: string) => {
+    setDeleteTarget({ type: 'unit', id: unitId, name: unitCode });
   };
 
-  const handleDeleteBlock = async (blockId: string, blockName: string) => {
-    if (!confirm(`Delete block "${blockName}"? Units will be unassigned from this block.`)) return;
+  const handleDeleteBlock = (blockId: string, blockName: string) => {
+    setDeleteTarget({ type: 'block', id: blockId, name: blockName });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
     try {
-      await api.delete(`/blocks/${blockId}`);
-      if (selectedBlockId === blockId) setSelectedBlockId("All");
+      if (deleteTarget.type === 'unit') {
+        await api.delete(`/units/${deleteTarget.id}`);
+      } else {
+        await api.delete(`/blocks/${deleteTarget.id}`);
+        if (selectedBlockId === deleteTarget.id) setSelectedBlockId("All");
+      }
+      setDeleteTarget(null);
       loadData();
-    } catch (err) { console.error("Failed to delete block", err); }
+    } catch (err) { console.error("Failed to delete", err); }
   };
 
   const handleUpdateUnitStatus = async (unitId: string, status: Unit["status"]) => {
@@ -341,7 +349,7 @@ export function LandlordProperties() {
                           <td className="px-6 py-4 font-mono font-bold text-sm text-on-surface text-right">KSh {unit.rent_amount.toLocaleString()}</td>
                           <td className="px-6 py-4 text-center">
                             <div className="flex items-center justify-center gap-1.5">
-                              <button onClick={() => handleDeleteUnit(unit.id)} className="p-1.5 rounded-lg text-on-surface-variant hover:text-red-650 hover:bg-red-50 transition-colors" title="Remove Unit">
+                              <button onClick={() => handleDeleteUnit(unit.id, unit.unit_code)} className="p-1.5 rounded-lg text-on-surface-variant hover:text-red-650 hover:bg-red-50 transition-colors" title="Remove Unit">
                                 <Trash2 className="w-4 h-4" />
                               </button>
                             </div>
@@ -436,6 +444,64 @@ export function LandlordProperties() {
               </div>
               <button type="submit" className="w-full py-3 bg-primary text-white rounded-xl font-bold text-sm">Create Unit</button>
             </form>
+          </div>
+        </div>
+      )}
+      {showAddUnitModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowAddUnitModal(false)} />
+          <div className="relative w-full max-w-md bg-white rounded-2xl shadow-xl p-6 space-y-4">
+            <div className="flex justify-between items-center pb-3 border-b border-outline-variant">
+              <h3 className="text-base font-extrabold text-primary">Add New Unit</h3>
+              <button onClick={() => setShowAddUnitModal(false)}><X className="w-5 h-5 text-on-surface-variant" /></button>
+            </div>
+            <form onSubmit={handleAddUnit} className="space-y-4">
+              <div><label className="block text-xs font-bold font-mono text-on-surface mb-1.5 uppercase">Unit Code</label>
+                <input type="text" required placeholder="e.g. Unit C01" value={unitCode} onChange={e => setUnitCode(e.target.value)} className="w-full px-3.5 py-2.5 border border-outline-variant rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" /></div>
+              <div><label className="block text-xs font-bold font-mono text-on-surface mb-1.5 uppercase">Block Assignment</label>
+                <select value={parentBlockId} onChange={e => setParentBlockId(e.target.value)} className="w-full px-3 py-2.5 border border-outline-variant rounded-xl text-sm">
+                  <option value="None">No Block</option>
+                  {currentPropBlocks.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </select></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div><label className="block text-xs font-bold font-mono text-on-surface mb-1.5 uppercase">Monthly Rent (KSh)</label>
+                  <input type="number" value={unitRent} onChange={e => setUnitRent(e.target.value)} className="w-full px-3.5 py-2.5 border border-outline-variant rounded-xl text-sm font-mono font-bold focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" /></div>
+                <div><label className="block text-xs font-bold font-mono text-on-surface mb-1.5 uppercase">Status</label>
+                  <select value={unitStatus} onChange={e => setUnitStatus(e.target.value as Unit["status"])} className="w-full px-3 py-2.5 border border-outline-variant rounded-xl text-sm">
+                    <option value="Vacant">Vacant</option>
+                    <option value="Reserved">Reserved</option>
+                    <option value="Occupied">Occupied</option>
+                    <option value="Notice Given">Notice Given</option>
+                    <option value="Under Maintenance">Under Maintenance</option>
+                  </select></div>
+              </div>
+              <button type="submit" className="w-full py-3 bg-primary text-white rounded-xl font-bold text-sm">Create Unit</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setDeleteTarget(null)} />
+          <div className="relative w-full max-w-sm bg-white rounded-2xl shadow-xl p-6 space-y-4 text-center">
+            <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center mx-auto">
+              <Trash2 className="w-6 h-6 text-red-600" />
+            </div>
+            <h3 className="text-lg font-extrabold text-on-surface">Delete {deleteTarget.type === 'unit' ? 'Unit' : 'Block'}</h3>
+            <p className="text-sm text-on-surface-variant">
+              Are you sure you want to delete <strong>{deleteTarget.name}</strong>?
+              {deleteTarget.type === 'block' && " Units in this block will be unassigned."}
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setDeleteTarget(null)} className="flex-1 py-2.5 border border-outline-variant rounded-xl font-bold text-sm text-on-surface-variant hover:bg-surface-container transition-colors">
+                Cancel
+              </button>
+              <button onClick={confirmDelete} className="flex-1 py-2.5 bg-red-600 text-white rounded-xl font-bold text-sm hover:bg-red-700 transition-colors">
+                Delete
+              </button>
+            </div>
           </div>
         </div>
       )}

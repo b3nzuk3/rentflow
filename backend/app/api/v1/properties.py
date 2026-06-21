@@ -32,7 +32,9 @@ async def create_property(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(require_roles(UserRole.ORG_OWNER, UserRole.PROPERTY_MANAGER)),
 ):
+    import uuid
     prop = Property(
+        id=str(uuid.uuid4()),
         organization_id=current_user.organization_id,
         name=data.name,
         location=data.location,

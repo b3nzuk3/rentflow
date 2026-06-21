@@ -27,7 +27,9 @@ async def create_lease(data: LeaseCreate, db: AsyncSession = Depends(get_db),
     if unit:
         unit.status = UnitStatus.RESERVED
 
+    import uuid
     lease = Lease(
+        id=str(uuid.uuid4()),
         organization_id=current_user.organization_id,
         tenant_id=data.tenant_id,
         unit_id=data.unit_id,

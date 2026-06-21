@@ -22,7 +22,8 @@ async def list_blocks(property_id: Optional[str] = Query(None), db: AsyncSession
 @router.post("/")
 async def create_block(property_id: str, name: str, db: AsyncSession = Depends(get_db),
                        current_user=Depends(require_roles(UserRole.ORG_OWNER, UserRole.PROPERTY_MANAGER))):
-    block = Block(property_id=property_id, name=name)
+    import uuid
+    block = Block(id=str(uuid.uuid4()), property_id=property_id, name=name)
     db.add(block)
     await db.flush()
     return {"id": str(block.id), "name": block.name, "property_id": str(block.property_id)}

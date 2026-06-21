@@ -9,7 +9,7 @@ from app.schemas.organizations import (
     OrganizationCreate, OrganizationUpdate, OrganizationResponse
 )
 
-router = APIRouter()
+router = APIRouter(redirect_slashes=False)
 
 
 @router.get("/me", response_model=OrganizationResponse)

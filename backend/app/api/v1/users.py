@@ -7,7 +7,7 @@ from app.db.models import User, UserRole
 from app.core.security import get_current_user, require_roles, get_password_hash
 from app.schemas.users import UserResponse, UserInvite
 
-router = APIRouter()
+router = APIRouter(redirect_slashes=False)
 
 
 @router.get("/", response_model=list[UserResponse])

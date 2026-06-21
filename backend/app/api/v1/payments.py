@@ -29,7 +29,9 @@ async def create_payment(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
+    import uuid
     payment = Payment(
+        id=str(uuid.uuid4()),
         organization_id=current_user.organization_id,
         lease_id=data.lease_id,
         amount=data.amount,
