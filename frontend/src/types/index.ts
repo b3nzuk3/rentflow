@@ -7,6 +7,14 @@ export interface Organization {
   name: string;
   subscription_plan: "Starter" | "Growth" | "Enterprise";
   is_active: boolean;
+  phone?: string;
+  email?: string;
+  address?: string;
+  website?: string;
+  tax_pin?: string;
+  reg_number?: string;
+  business_type?: string;
+  logo_url?: string;
   created_at: string;
   updated_at: string;
 }

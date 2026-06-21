@@ -7,7 +7,7 @@ import {
   AlertTriangle, CheckCircle, Info, Eye, EyeOff, Smartphone, MapPin, Laptop
 } from "lucide-react";
 import { api } from "@/lib/api";
-import type { Organization } from "@/types";
+import type { Organization, User } from "@/types";
 
 type SettingsTab = "org_profile" | "my_account" | "users_roles" | "security" | "notifications" | "payment_config" | "subscription_billing" | "audit_logs" | "data_export";
 
@@ -26,26 +26,27 @@ const tabs: { key: SettingsTab; label: string; icon: React.ElementType; ownerOnl
 export function SaaSSettings() {
   const [activeTab, setActiveTab] = useState<SettingsTab>("org_profile");
   const [org, setOrg] = useState<Organization | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
 
   // Org profile
   const [orgName, setOrgName] = useState("");
-  const [businessType, setBusinessType] = useState("Commercial & Residential Real Estate LLC");
-  const [orgPhone, setOrgPhone] = useState("+254 722 000 001");
-  const [orgEmail, setOrgEmail] = useState("info@amani.co");
-  const [orgAddress, setOrgAddress] = useState("Amani Tower, Suite 402, Nairobi, Kenya");
-  const [orgWebsite, setOrgWebsite] = useState("https://www.amaniproperties.com");
-  const [orgTaxPin, setOrgTaxPin] = useState("A001239857B");
-  const [orgRegNumber, setOrgRegNumber] = useState("CPR/2021/84725");
+  const [businessType, setBusinessType] = useState("");
+  const [orgPhone, setOrgPhone] = useState("");
+  const [orgEmail, setOrgEmail] = useState("");
+  const [orgAddress, setOrgAddress] = useState("");
+  const [orgWebsite, setOrgWebsite] = useState("");
+  const [orgTaxPin, setOrgTaxPin] = useState("");
+  const [orgRegNumber, setOrgRegNumber] = useState("");
 
   // Account
   const [isEditingAccount, setIsEditingAccount] = useState(false);
-  const [accFirstName, setAccFirstName] = useState("Fatuma");
-  const [accLastName, setAccLastName] = useState("Ali");
-  const [accEmail, setAccEmail] = useState("fatuma.ali@amani.com");
-  const [accPhone, setAccPhone] = useState("+254 712 345 678");
+  const [accFirstName, setAccFirstName] = useState("");
+  const [accLastName, setAccLastName] = useState("");
+  const [accEmail, setAccEmail] = useState("");
+  const [accPhone, setAccPhone] = useState("");
 
   // Notifications
   const [notifPrefs, setNotifPrefs] = useState({
@@ -68,16 +69,48 @@ export function SaaSSettings() {
   });
 
   useEffect(() => {
-    loadOrg();
+    loadData();
   }, []);
 
-  const loadOrg = async () => {
+  const loadData = async () => {
     try {
-      const res = await api.get("/organizations/me");
-      setOrg(res.data);
-      setOrgName(res.data.name || "");
+      const [orgRes, userRes] = await Promise.all([
+        api.get("/organizations/me").catch(() => null),
+        api.get("/users/me").catch(() => null),
+      ]);
+      if (orgRes) {
+        const o = orgRes.data;
+        setOrg(o);
+        setOrgName(o.name || "");
+        setBusinessType(o.business_type || "");
+        setOrgPhone(o.phone || "");
+        setOrgEmail(o.email || "");
+        setOrgAddress(o.address || "");
+        setOrgWebsite(o.website || "");
+        setOrgTaxPin(o.tax_pin || "");
+        setOrgRegNumber(o.reg_number || "");
+      }
+      if (userRes) {
+        const u = userRes.data;
+        setUser(u);
+        setAccFirstName(u.first_name || "");
+        setAccLastName(u.last_name || "");
+        setAccEmail(u.email || "");
+        setAccPhone(u.phone_number || "");
+      } else {
+        // Fallback to stored user
+        const stored = localStorage.getItem("user");
+        if (stored) {
+          const u = JSON.parse(stored);
+          setUser(u);
+          setAccFirstName(u.first_name || "");
+          setAccLastName(u.last_name || "");
+          setAccEmail(u.email || "");
+          setAccPhone(u.phone_number || "");
+        }
+      }
     } catch (err) {
-      console.error("Failed to load org", err);
+      console.error("Failed to load settings data", err);
     } finally {
       setLoading(false);
     }
@@ -92,7 +125,17 @@ export function SaaSSettings() {
     e.preventDefault();
     setSaving(true);
     try {
-      await api.patch(`/organizations/${org?.id}`, { name: orgName });
+      const res = await api.patch(`/organizations/${org?.id}`, {
+        name: orgName,
+        business_type: businessType || undefined,
+        phone: orgPhone || undefined,
+        email: orgEmail || undefined,
+        address: orgAddress || undefined,
+        website: orgWebsite || undefined,
+        tax_pin: orgTaxPin || undefined,
+        reg_number: orgRegNumber || undefined,
+      });
+      setOrg(res.data);
       showToast("✓ Organization profile saved!");
     } catch { showToast("Failed to save", "error"); }
     finally { setSaving(false); }
@@ -100,8 +143,27 @@ export function SaaSSettings() {
 
   const handleSaveAccount = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsEditingAccount(false);
-    showToast("✓ Account settings saved!");
+    setSaving(true);
+    try {
+      const res = await api.patch("/users/me", {
+        first_name: accFirstName,
+        last_name: accLastName,
+        email: accEmail,
+        phone_number: accPhone,
+      });
+      setUser(res.data);
+      // Update stored user in localStorage
+      const stored = localStorage.getItem("user");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        localStorage.setItem("user", JSON.stringify({ ...parsed, ...res.data }));
+      }
+      setIsEditingAccount(false);
+      showToast("✓ Account settings saved!");
+    } catch (err: any) {
+      showToast(err.response?.data?.detail || "Failed to save", "error");
+    }
+    finally { setSaving(false); }
   };
 
   const handleSavePaymentConfig = async (e: React.FormEvent) => {

@@ -5,7 +5,7 @@ from sqlalchemy import select
 from app.db.database import get_db
 from app.db.models import User, UserRole
 from app.core.security import get_current_user, require_roles, get_password_hash
-from app.schemas.users import UserResponse, UserInvite
+from app.schemas.users import UserResponse, UserInvite, UserUpdate
 from app.services.audit_service import log_action
 
 router = APIRouter(redirect_slashes=False)
@@ -43,6 +43,30 @@ async def invite_user(
     await db.flush()
     await log_action(db, current_user.organization_id, current_user.id, "INVITE_USER", "User", new_value=f"{data.first_name} {data.last_name} ({data.email}) — Role: {data.role.value}")
     return user
+
+
+@router.patch("/me", response_model=UserResponse)
+async def update_my_profile(
+    data: UserUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    changes = data.model_dump(exclude_unset=True)
+    if not changes:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    # Check email uniqueness if changing email
+    if "email" in changes:
+        existing = await db.execute(select(User).where(User.email == changes["email"].lower(), User.id != current_user.id))
+        if existing.scalar_one_or_none():
+            raise HTTPException(status_code=400, detail="Email already registered")
+        changes["email"] = changes["email"].lower()
+    for field, value in changes.items():
+        setattr(current_user, field, value)
+    await db.flush()
+    await db.refresh(current_user)
+    change_desc = ", ".join(f"{k}={v}" for k, v in changes.items())
+    await log_action(db, current_user.organization_id, current_user.id, "UPDATE_USER_PROFILE", "User", previous_value=f"{current_user.first_name} {current_user.last_name}", new_value=change_desc)
+    return current_user
 
 
 @router.patch("/{user_id}/toggle")

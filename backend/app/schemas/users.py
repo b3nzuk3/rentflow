@@ -38,3 +38,10 @@ class UserInvite(BaseModel):
     email: EmailStr
     phone_number: str
     role: UserRole
+
+
+class UserUpdate(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    phone_number: Optional[str] = None
+    email: Optional[str] = None
