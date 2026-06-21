@@ -1,6 +1,0 @@
-{
-  "name": "RentFlow",
-  "description": "Premium client-side landlord and tenant portal for Kenyan property managers, featuring automated payment ledger matching, bento-grid metrics, property portfolio tracking, and real-time M-Pesa status verification.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}

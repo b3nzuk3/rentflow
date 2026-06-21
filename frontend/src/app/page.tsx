@@ -2,20 +2,18 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Building, Lock, Mail, ArrowRight, Check, Sparkles, Laptop, User, Phone } from "lucide-react";
+import { Building, Lock, Mail, ArrowRight, Check, Sparkles, Laptop } from "lucide-react";
 import { login, signup, storeUser } from "@/lib/api";
 import { useAuthStore } from "@/stores/authStore";
-import type { UserRole } from "@/types";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { setUser, setLoggedIn, setOrganization } = useAuthStore();
+  const { setUser, setLoggedIn } = useAuthStore();
   const [viewMode, setViewMode] = useState<"login" | "signup">("login");
   const [loginEmail, setLoginEmail] = useState("");
-  const [loginPassword, setLoginPassword] = useState("password123");
+  const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
 
-  // Signup fields
   const [signupOrgId, setSignupOrgId] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -24,13 +22,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [signupError, setSignupError] = useState("");
   const [signupSuccess, setSignupSuccess] = useState("");
-
-  const demoProfiles = [
-    { name: "Fatuma Ali", roleLabel: "Amani Property Owner", role: "org_owner" as UserRole, email: "fatuma.ali@amani.com", avatarBg: "bg-emerald-100 text-[#006c0c]" },
-    { name: "Jane Doe", roleLabel: "Greenwood Tenant (Unit B12)", role: "tenant" as UserRole, email: "jane.doe@gmail.com", avatarBg: "bg-blue-100 text-blue-700" },
-    { name: "Mwangi Karanja", roleLabel: "Amani Property Manager", role: "property_manager" as UserRole, email: "mwangi.k@amani.com", avatarBg: "bg-indigo-100 text-indigo-700" },
-    { name: "Super Administrator", roleLabel: "SaaS Platform Admin", role: "super_admin" as UserRole, email: "admin@rentflow.co", avatarBg: "bg-purple-100 text-purple-700" },
-  ];
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,20 +51,6 @@ export default function LoginPage() {
       }, 1500);
     } catch (err: any) {
       setSignupError(err.response?.data?.detail || "Signup failed");
-    }
-  };
-
-  const handleDemoLogin = async (demoEmail: string) => {
-    setLoginEmail(demoEmail);
-    setLoginPassword("password123");
-    try {
-      const data = await login(demoEmail, "password123");
-      storeUser(data);
-      setUser({ id: data.user_id, email: demoEmail, role: data.role, first_name: data.first_name, last_name: data.last_name, organization_id: data.organization_id, phone_number: "", is_active: true, created_at: "" } as any);
-      setLoggedIn(true);
-      router.push("/dashboard");
-    } catch (err: any) {
-      setLoginError(err.response?.data?.detail || "Demo login failed");
     }
   };
 
@@ -121,7 +98,7 @@ export default function LoginPage() {
             {viewMode === "login" && (
               <>
                 <h2 className="text-2xl font-black text-on-surface tracking-tight">Access Your Portal</h2>
-                <p className="text-sm text-on-surface-variant font-semibold">Sign in to your private organization storage partition below.</p>
+                <p className="text-sm text-on-surface-variant font-semibold">Sign in to your organization account below.</p>
               </>
             )}
             {viewMode === "signup" && (
@@ -140,41 +117,23 @@ export default function LoginPage() {
               <form onSubmit={handleLogin} className="space-y-4 text-left">
                 {loginError && <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-xs text-red-650 font-bold">{loginError}</div>}
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-extrabold font-mono text-zinc-650 uppercase">Operator Email Address</label>
+                  <label className="block text-xs font-extrabold font-mono text-zinc-650 uppercase">Email Address</label>
                   <div className="relative">
                     <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 w-4 h-4" />
-                    <input type="email" required placeholder="e.g. fatuma.ali@amani.com" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} className="w-full pl-10 pr-4 py-3 border border-zinc-250 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary transition-all font-bold" />
+                    <input type="email" required placeholder="e.g. owner@rentflow.io" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} className="w-full pl-10 pr-4 py-3 border border-zinc-250 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary transition-all font-bold" />
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-extrabold font-mono text-zinc-650 uppercase">Security Passcode</label>
+                  <label className="block text-xs font-extrabold font-mono text-zinc-650 uppercase">Password</label>
                   <div className="relative">
                     <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 w-4 h-4" />
                     <input type="password" required placeholder="••••••••" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} className="w-full pl-10 pr-4 py-3 border border-zinc-250 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary transition-all font-bold text-zinc-600" />
                   </div>
                 </div>
                 <button type="submit" className="w-full py-3.5 bg-primary hover:bg-primary-hover text-white rounded-xl text-sm font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-md hover:shadow-primary/10 active:scale-98">
-                  <span>Authenticate Operator</span>
+                  <span>Sign In</span>
                   <ArrowRight className="w-4 h-4 stroke-[3px]" />
                 </button>
-
-                {/* Demo users */}
-                <div className="pt-4 border-t border-outline-variant">
-                  <p className="text-[10px] font-bold font-mono text-zinc-500 uppercase tracking-wider mb-3">Quick Demo Access</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    {demoProfiles.map((profile) => (
-                      <button key={profile.email} type="button" onClick={() => handleDemoLogin(profile.email)} className="flex items-center gap-2 p-2.5 rounded-xl border border-outline-variant hover:border-primary/30 hover:bg-primary/5 transition-all text-left">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold ${profile.avatarBg}`}>
-                          {profile.name.split(" ").map(n => n[0]).join("")}
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold text-on-surface leading-tight">{profile.name}</p>
-                          <p className="text-[9px] text-on-surface-variant font-mono">{profile.roleLabel}</p>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
 
                 <button type="button" onClick={() => setViewMode("signup")} className="w-full text-center text-xs text-primary font-bold hover:underline pt-2">
                   New organization? Sign up here
