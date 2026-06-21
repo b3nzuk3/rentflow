@@ -1,3 +1,4 @@
+import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import AuditLog
 from typing import Optional
@@ -14,6 +15,7 @@ async def log_action(
     ip_address: Optional[str] = None,
 ):
     log = AuditLog(
+        id=str(uuid.uuid4()),
         organization_id=organization_id,
         user_id=user_id,
         action=action,

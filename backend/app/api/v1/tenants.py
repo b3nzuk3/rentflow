@@ -6,8 +6,9 @@ from app.db.database import get_db
 from app.db.models import Tenant, UserRole, Lease, Unit, Property
 from app.core.security import get_current_user, require_roles
 from app.schemas.tenants import TenantCreate, TenantUpdate, TenantResponse
+from app.services.audit_service import log_action
 
-router = APIRouter()
+router = APIRouter(redirect_slashes=False)
 
 
 @router.get("/me")
@@ -145,6 +146,7 @@ async def create_tenant(
     )
     db.add(tenant)
     await db.flush()
+    await log_action(db, current_user.organization_id, current_user.id, "CREATE_TENANT", "Tenant", new_value=f"{data.first_name} {data.last_name} ({data.email})")
     return tenant
 
 
@@ -164,7 +166,11 @@ async def update_tenant(tenant_id: str, data: TenantUpdate, db: AsyncSession = D
     tenant = result.scalar_one_or_none()
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
-    for field, value in data.model_dump(exclude_unset=True).items():
+    changes = data.model_dump(exclude_unset=True)
+    for field, value in changes.items():
         setattr(tenant, field, value)
     await db.flush()
+    await db.refresh(tenant)
+    change_desc = ", ".join(f"{k}={v}" for k, v in changes.items())
+    await log_action(db, current_user.organization_id, current_user.id, "UPDATE_TENANT", "Tenant", previous_value=f"{tenant.first_name} {tenant.last_name}", new_value=change_desc)
     return tenant

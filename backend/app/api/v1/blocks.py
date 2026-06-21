@@ -7,8 +7,9 @@ from app.db.database import get_db
 from app.db.models import Block, UserRole
 from app.core.security import get_current_user, require_roles
 from app.schemas.properties import BlockCreate
+from app.services.audit_service import log_action
 
-router = APIRouter()
+router = APIRouter(redirect_slashes=False)
 
 
 @router.get("/")
@@ -27,6 +28,7 @@ async def create_block(data: BlockCreate, db: AsyncSession = Depends(get_db),
     block = Block(id=str(uuid.uuid4()), property_id=data.property_id, name=data.name)
     db.add(block)
     await db.flush()
+    await log_action(db, current_user.organization_id, current_user.id, "CREATE_BLOCK", "Block", new_value=data.name)
     return {"id": str(block.id), "name": block.name, "property_id": str(block.property_id)}
 
 
@@ -37,5 +39,7 @@ async def delete_block(block_id: str, db: AsyncSession = Depends(get_db),
     block = result.scalar_one_or_none()
     if not block:
         raise HTTPException(status_code=404, detail="Block not found")
+    block_name = block.name
     await db.delete(block)
+    await log_action(db, current_user.organization_id, current_user.id, "DELETE_BLOCK", "Block", previous_value=block_name)
     return {"detail": "Block deleted"}

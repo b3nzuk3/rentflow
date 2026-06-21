@@ -6,8 +6,9 @@ from app.db.database import get_db
 from app.db.models import Lease, Unit, UserRole, UnitStatus, LeaseStatus
 from app.core.security import get_current_user, require_roles
 from app.schemas.leases import LeaseCreate, LeaseUpdate, LeaseResponse
+from app.services.audit_service import log_action
 
-router = APIRouter()
+router = APIRouter(redirect_slashes=False)
 
 
 @router.get("/", response_model=list[LeaseResponse])
@@ -40,6 +41,8 @@ async def create_lease(data: LeaseCreate, db: AsyncSession = Depends(get_db),
     )
     db.add(lease)
     await db.flush()
+    unit_code = unit.unit_code if unit else data.unit_id
+    await log_action(db, current_user.organization_id, current_user.id, "CREATE_LEASE", "Lease", new_value=f"Unit {unit_code} (KSh {data.monthly_rent}/mo)")
     return lease
 
 
@@ -55,6 +58,8 @@ async def sign_lease(lease_id: str, db: AsyncSession = Depends(get_db), current_
     if unit:
         unit.status = UnitStatus.OCCUPIED
     await db.flush()
+    await db.refresh(lease)
+    await log_action(db, current_user.organization_id, current_user.id, "SIGN_LEASE", "Lease", previous_value="Draft", new_value="Active")
     return lease
 
 
@@ -65,7 +70,11 @@ async def update_lease(lease_id: str, data: LeaseUpdate, db: AsyncSession = Depe
     lease = result.scalar_one_or_none()
     if not lease:
         raise HTTPException(status_code=404, detail="Lease not found")
-    for field, value in data.model_dump(exclude_unset=True).items():
+    changes = data.model_dump(exclude_unset=True)
+    for field, value in changes.items():
         setattr(lease, field, value)
     await db.flush()
+    await db.refresh(lease)
+    change_desc = ", ".join(f"{k}={v}" for k, v in changes.items())
+    await log_action(db, current_user.organization_id, current_user.id, "UPDATE_LEASE", "Lease", new_value=change_desc)
     return lease

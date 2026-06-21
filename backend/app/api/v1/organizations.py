@@ -8,6 +8,7 @@ from app.core.security import get_current_user, require_roles
 from app.schemas.organizations import (
     OrganizationCreate, OrganizationUpdate, OrganizationResponse
 )
+from app.services.audit_service import log_action
 
 router = APIRouter(redirect_slashes=False)
 
@@ -53,4 +54,7 @@ async def update_organization(
     for field, value in update_data.items():
         setattr(org, field, value)
     await db.flush()
+    await db.refresh(org)
+    change_desc = ", ".join(f"{k}={v}" for k, v in update_data.items())
+    await log_action(db, current_user.organization_id, current_user.id, "UPDATE_ORGANIZATION", "Organization", previous_value=org.name, new_value=change_desc)
     return org

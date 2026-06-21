@@ -6,6 +6,7 @@ from app.db.database import get_db
 from app.db.models import User, UserRole
 from app.core.security import get_current_user, require_roles, get_password_hash
 from app.schemas.users import UserResponse, UserInvite
+from app.services.audit_service import log_action
 
 router = APIRouter(redirect_slashes=False)
 
@@ -40,6 +41,7 @@ async def invite_user(
     )
     db.add(user)
     await db.flush()
+    await log_action(db, current_user.organization_id, current_user.id, "INVITE_USER", "User", new_value=f"{data.first_name} {data.last_name} ({data.email}) — Role: {data.role.value}")
     return user
 
 
@@ -54,4 +56,6 @@ async def toggle_user_active(user_id: str, db: AsyncSession = Depends(get_db),
         raise HTTPException(status_code=400, detail="Cannot suspend organization owner")
     user.is_active = not user.is_active
     await db.flush()
+    status = "Active" if user.is_active else "Suspended"
+    await log_action(db, current_user.organization_id, current_user.id, "TOGGLE_USER_STATUS", "User", previous_value=str(not user.is_active), new_value=f"{status} — {user.first_name} {user.last_name}")
     return {"id": str(user.id), "is_active": user.is_active}

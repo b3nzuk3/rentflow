@@ -7,8 +7,9 @@ from app.db.database import get_db
 from app.db.models import Unit, Property, Block, UserRole
 from app.core.security import get_current_user, require_roles
 from app.schemas.units import UnitCreate, UnitUpdate, UnitStatusUpdate, UnitResponse
+from app.services.audit_service import log_action
 
-router = APIRouter()
+router = APIRouter(redirect_slashes=False)
 
 
 @router.get("/", response_model=list[UnitResponse])
@@ -50,6 +51,7 @@ async def create_unit(
     )
     db.add(unit)
     await db.flush()
+    await log_action(db, current_user.organization_id, current_user.id, "CREATE_UNIT", "Unit", new_value=f"{data.unit_code} (KSh {data.rent_amount})")
     return unit
 
 
@@ -77,9 +79,13 @@ async def update_unit(
     unit = result.scalar_one_or_none()
     if not unit:
         raise HTTPException(status_code=404, detail="Unit not found")
-    for field, value in data.model_dump(exclude_unset=True).items():
+    changes = data.model_dump(exclude_unset=True)
+    for field, value in changes.items():
         setattr(unit, field, value)
     await db.flush()
+    await db.refresh(unit)
+    change_desc = ", ".join(f"{k}={v}" for k, v in changes.items())
+    await log_action(db, current_user.organization_id, current_user.id, "UPDATE_UNIT", "Unit", previous_value=unit.unit_code, new_value=change_desc)
     return unit
 
 
@@ -94,8 +100,12 @@ async def update_unit_status(
     unit = result.scalar_one_or_none()
     if not unit:
         raise HTTPException(status_code=404, detail="Unit not found")
+    old_status = unit.status.value if hasattr(unit.status, 'value') else str(unit.status)
     unit.status = data.status
     await db.flush()
+    await db.refresh(unit)
+    new_status = data.status.value if hasattr(data.status, 'value') else str(data.status)
+    await log_action(db, current_user.organization_id, current_user.id, "UPDATE_UNIT_STATUS", "Unit", previous_value=f"{old_status} — {unit.unit_code}", new_value=new_status)
     return unit
 
 
@@ -109,5 +119,7 @@ async def delete_unit(
     unit = result.scalar_one_or_none()
     if not unit:
         raise HTTPException(status_code=404, detail="Unit not found")
+    unit_code = unit.unit_code
     await db.delete(unit)
+    await log_action(db, current_user.organization_id, current_user.id, "DELETE_UNIT", "Unit", previous_value=unit_code)
     return {"detail": "Unit deleted"}

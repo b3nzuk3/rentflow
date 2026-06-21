@@ -7,8 +7,9 @@ from app.db.database import get_db
 from app.db.models import Property, Organization, UserRole
 from app.core.security import get_current_user, require_roles
 from app.schemas.properties import PropertyCreate, PropertyUpdate, PropertyResponse
+from app.services.audit_service import log_action
 
-router = APIRouter()
+router = APIRouter(redirect_slashes=False)
 
 
 @router.get("/", response_model=list[PropertyResponse])
@@ -42,6 +43,7 @@ async def create_property(
     )
     db.add(prop)
     await db.flush()
+    await log_action(db, current_user.organization_id, current_user.id, "CREATE_PROPERTY", "Property", new_value=f"{data.name} ({data.location})")
     return prop
 
 
@@ -69,9 +71,13 @@ async def update_property(
     prop = result.scalar_one_or_none()
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
-    for field, value in data.model_dump(exclude_unset=True).items():
+    changes = data.model_dump(exclude_unset=True)
+    for field, value in changes.items():
         setattr(prop, field, value)
     await db.flush()
+    await db.refresh(prop)
+    change_desc = ", ".join(f"{k}={v}" for k, v in changes.items())
+    await log_action(db, current_user.organization_id, current_user.id, "UPDATE_PROPERTY", "Property", previous_value=prop.name, new_value=change_desc)
     return prop
 
 
@@ -85,5 +91,7 @@ async def delete_property(
     prop = result.scalar_one_or_none()
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
+    prop_name = prop.name
     await db.delete(prop)
+    await log_action(db, current_user.organization_id, current_user.id, "DELETE_PROPERTY", "Property", previous_value=prop_name)
     return {"detail": "Property deleted"}

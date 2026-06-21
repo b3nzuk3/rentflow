@@ -6,8 +6,9 @@ from app.db.database import get_db
 from app.db.models import Payment, Lease, UserRole, PaymentStatus
 from app.core.security import get_current_user, require_roles
 from app.schemas.payments import PaymentCreate, PaymentVerify, PaymentResponse
+from app.services.audit_service import log_action
 
-router = APIRouter()
+router = APIRouter(redirect_slashes=False)
 
 
 @router.get("/", response_model=list[PaymentResponse])
@@ -44,6 +45,7 @@ async def create_payment(
     )
     db.add(payment)
     await db.flush()
+    await log_action(db, current_user.organization_id, current_user.id, "SUBMIT_PAYMENT", "Payment", new_value=f"KSh {data.amount} ({data.payment_method}) — {data.transaction_code}")
     return payment
 
 
@@ -58,10 +60,14 @@ async def verify_payment(
     payment = result.scalar_one_or_none()
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
+    old_status = payment.status.value if hasattr(payment.status, 'value') else str(payment.status)
     payment.status = data.status
     payment.verification_notes = data.verification_notes
     payment.verified_by = current_user.email
     await db.flush()
+    await db.refresh(payment)
+    new_status = data.status.value if hasattr(data.status, 'value') else str(data.status)
+    await log_action(db, current_user.organization_id, current_user.id, "VERIFY_PAYMENT", "Payment", previous_value=old_status, new_value=f"{new_status} — KSh {payment.amount} (verified by {current_user.email})")
     return payment
 
 
