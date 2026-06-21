@@ -34,3 +34,8 @@ class PropertyResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class BlockCreate(BaseModel):
+    property_id: str
+    name: str
