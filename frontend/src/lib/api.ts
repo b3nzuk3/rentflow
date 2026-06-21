@@ -153,3 +153,42 @@ export async function verifyPayment(
   });
   return data;
 }
+
+// ── Tenant Self-Service ──────────────────────────────────────────────────────
+
+export async function getMyTenantProfile() {
+  const { data } = await api.get("/tenants/me");
+  return data;
+}
+
+export async function getMyLeases() {
+  const { data } = await api.get("/tenants/me/leases");
+  return data;
+}
+
+export async function getMyPayments(): Promise<Payment[]> {
+  const { data } = await api.get("/tenants/me/payments");
+  return data;
+}
+
+// ── Dashboard ─────────────────────────────────────────────────────────────────
+
+export async function getDashboardSummary(): Promise<{
+  total_properties: number;
+  total_units: number;
+  occupied_units: number;
+  vacant_units: number;
+  occupancy_rate: number;
+  expected_rent: number;
+  collected_rent: number;
+  outstanding_rent: number;
+  pending_payments: number;
+}> {
+  const { data } = await api.get("/reports/summary");
+  return data;
+}
+
+export async function getAuditLogs(limit = 50) {
+  const { data } = await api.get(`/audit?limit=${limit}`);
+  return data;
+}

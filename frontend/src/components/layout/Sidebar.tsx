@@ -2,15 +2,14 @@
 
 import { useState } from "react";
 import {
-  Wallet, Bell, RefreshCw, ShieldCheck, User, LogOut, ChevronDown,
+  Wallet, Bell, RefreshCw, ShieldCheck, LogOut,
   LayoutDashboard, Building, FileText, CreditCard, BarChart3, Settings,
-  Layers, Menu, X, Users
+  Layers, Menu, X
 } from "lucide-react";
 import type { UserRole, LandlordTab } from "@/types";
 
 interface SidebarProps {
   currentRole: UserRole;
-  onChangeRole: (role: UserRole) => void;
   activeTab: LandlordTab;
   onTabChange: (tab: LandlordTab) => void;
   isLandlord: boolean;
@@ -52,11 +51,10 @@ const roleColors: Record<UserRole, string> = {
 };
 
 export function Sidebar({
-  currentRole, onChangeRole, activeTab, onTabChange,
+  currentRole, activeTab, onTabChange,
   isLandlord, onLogout, organizationName, pendingCount,
 }: SidebarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
 
   const handleTabChange = (tab: LandlordTab) => {
     onTabChange(tab);
@@ -192,42 +190,8 @@ export function Sidebar({
           )}
         </nav>
 
-        {/* Bottom: Role selector + Logout */}
+        {/* Bottom: User info + Logout */}
         <div className="px-3 py-4 border-t border-zinc-800 space-y-3">
-          {/* Role dropdown */}
-          <div className="relative">
-            <button
-              onClick={() => setRoleDropdownOpen(!roleDropdownOpen)}
-              className="w-full flex items-center justify-between gap-2 px-3 py-2.5 bg-zinc-800/60 hover:bg-zinc-800 rounded-xl border border-zinc-700/50 transition-colors"
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center text-white font-black text-[10px] shrink-0">
-                  {currentRole === "tenant" ? "TN" : "AD"}
-                </div>
-                <span className="text-xs font-bold text-white truncate">{roleLabels[currentRole]}</span>
-              </div>
-              <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform ${roleDropdownOpen ? "rotate-180" : ""}`} />
-            </button>
-            {roleDropdownOpen && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setRoleDropdownOpen(false)} />
-                <div className="absolute bottom-full left-0 right-0 mb-1 bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl py-1 z-20">
-                  {(Object.keys(roleLabels) as UserRole[]).map((role) => (
-                    <button
-                      key={role}
-                      onClick={() => { onChangeRole(role); setRoleDropdownOpen(false); }}
-                      className={`w-full text-left px-3 py-2 text-xs font-semibold transition-colors ${
-                        role === currentRole ? "text-primary bg-primary/10" : "text-zinc-300 hover:bg-zinc-800"
-                      }`}
-                    >
-                      {roleLabels[role]}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-
           {/* Logout */}
           <button
             onClick={onLogout}

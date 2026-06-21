@@ -73,10 +73,6 @@ export default function DashboardPage() {
     router.push("/");
   };
 
-  const handleRoleChange = (role: string) => {
-    setCurrentRole(role as any);
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background-custom lg:pl-64">
@@ -107,7 +103,6 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-background-custom">
       <Sidebar
         currentRole={currentRole}
-        onChangeRole={handleRoleChange}
         activeTab={activeTab}
         onTabChange={setActiveTab}
         isLandlord={isLandlord}
@@ -123,7 +118,7 @@ export default function DashboardPage() {
           {currentRole === "super_admin" && <SuperAdminDashboard />}
 
           {isLandlord && activeTab === "dashboard" && summary && (
-            <LandlordDashboard summary={summary} />
+            <LandlordDashboard summary={summary} onNavigate={(tab) => setActiveTab(tab as LandlordTab)} />
           )}
           {isLandlord && activeTab === "properties" && <LandlordProperties />}
           {isLandlord && activeTab === "leases" && <LandlordLeases />}
