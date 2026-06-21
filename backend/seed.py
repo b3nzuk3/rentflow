@@ -148,18 +148,23 @@ async def seed():
         # ── Leases (tenant → unit) ──
         lease_jane_b12 = str(uuid.uuid4()); lease_john_a03 = str(uuid.uuid4())
         lease_sarah_a05 = str(uuid.uuid4()); lease_faith_v02 = str(uuid.uuid4())
-        lease_alex_102 = str(uuid.uuid4())
+        lease_alex_102 = str(uuid.uuid4()); lease_amos_103 = str(uuid.uuid4())
         leases = [
+            # Active leases (current dates)
             Lease(id=lease_jane_b12, organization_id=org_id, tenant_id=tenant_jane, unit_id=unit_b12,
-                  monthly_rent=35000, security_deposit=35000, start_date="2024-01-01", end_date="2024-12-31", status=LeaseStatus.ACTIVE),
+                  monthly_rent=35000, security_deposit=35000, start_date="2026-01-01", end_date="2026-12-31", status=LeaseStatus.ACTIVE),
             Lease(id=lease_john_a03, organization_id=org_id, tenant_id=tenant_john, unit_id=unit_a03,
-                  monthly_rent=22000, security_deposit=22000, start_date="2024-02-15", end_date="2025-02-14", status=LeaseStatus.ACTIVE),
+                  monthly_rent=22000, security_deposit=22000, start_date="2026-02-15", end_date="2027-02-14", status=LeaseStatus.ACTIVE),
             Lease(id=lease_sarah_a05, organization_id=org_id, tenant_id=tenant_sarah, unit_id=unit_a05,
-                  monthly_rent=45000, security_deposit=45000, start_date="2024-06-01", end_date="2025-05-31", status=LeaseStatus.ACTIVE),
-            Lease(id=lease_faith_v02, organization_id=org_id, tenant_id=tenant_faith, unit_id=unit_v02,
-                  monthly_rent=125000, security_deposit=125000, start_date="2023-09-01", end_date="2024-08-31", status=LeaseStatus.ACTIVE),
+                  monthly_rent=45000, security_deposit=45000, start_date="2026-06-01", end_date="2027-05-31", status=LeaseStatus.ACTIVE),
             Lease(id=lease_alex_102, organization_id=org_id, tenant_id=tenant_alex, unit_id=unit_102,
-                  monthly_rent=48000, security_deposit=48000, start_date="2024-03-01", end_date="2025-02-28", status=LeaseStatus.ACTIVE),
+                  monthly_rent=48000, security_deposit=48000, start_date="2026-03-01", end_date="2027-02-28", status=LeaseStatus.ACTIVE),
+            # Expired lease (past end date)
+            Lease(id=lease_faith_v02, organization_id=org_id, tenant_id=tenant_faith, unit_id=unit_v02,
+                  monthly_rent=125000, security_deposit=125000, start_date="2024-09-01", end_date="2025-08-31", status=LeaseStatus.EXPIRED),
+            # Draft lease (not yet signed)
+            Lease(id=lease_amos_103, organization_id=org_id, tenant_id=tenant_amos, unit_id=unit_103,
+                  monthly_rent=48000, security_deposit=48000, start_date="2026-07-01", end_date="2027-06-30", status=LeaseStatus.DRAFT),
         ]
         for l in leases:
             session.add(l)

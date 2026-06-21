@@ -109,6 +109,7 @@ export function LandlordLeases() {
   const [leases, setLeases] = useState<Lease[]>([]);
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [vacantUnits, setVacantUnits] = useState<Unit[]>([]);
+  const [allUnits, setAllUnits] = useState<Unit[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -145,11 +146,14 @@ export function LandlordLeases() {
     setLoading(true);
     setError(null);
     try {
-      const [leasesRes, unitsRes] = await Promise.all([
+      const [leasesRes, tenantsRes, unitsRes] = await Promise.all([
         getLeases(),
+        api.get("/tenants"),
         getUnits(),
       ]);
       setLeases(leasesRes);
+      setTenants(tenantsRes.data);
+      setAllUnits(unitsRes);
       setVacantUnits(unitsRes.filter((u) => u.status === "Vacant"));
     } catch (err) {
       console.error("Failed to fetch data:", err);
@@ -175,10 +179,10 @@ export function LandlordLeases() {
     return t ? `${t.first_name} ${t.last_name}` : "—";
   };
 
-  // ── Helper: resolve unit code from units ─────────────────────────────────
+  // ── Helper: resolve unit code from all units ──────────────────────────────
 
   const getUnitCode = (unitId: string): string => {
-    const u = vacantUnits.find((u) => u.id === unitId);
+    const u = allUnits.find((u) => u.id === unitId);
     return u ? u.unit_code : "—";
   };
 
