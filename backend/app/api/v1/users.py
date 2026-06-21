@@ -45,6 +45,14 @@ async def invite_user(
     return user
 
 
+@router.get("/me", response_model=UserResponse)
+async def get_my_profile(
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    return current_user
+
+
 @router.patch("/me", response_model=UserResponse)
 async def update_my_profile(
     data: UserUpdate,
