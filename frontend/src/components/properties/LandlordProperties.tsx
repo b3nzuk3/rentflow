@@ -4,8 +4,11 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import type { Property, Block, Unit } from "@/types";
 import { Building, Plus, MapPin, ChevronRight, Layers, Trash2, Lock, Check, X } from "lucide-react";
+import { useAuthStore } from "@/stores/authStore";
 
 export function LandlordProperties() {
+  const { organization } = useAuthStore();
+  const orgName = organization?.name || "Your Organization";
   const [properties, setProperties] = useState<Property[]>([]);
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
@@ -146,7 +149,7 @@ export function LandlordProperties() {
         <div>
           <h2 className="text-3xl font-extrabold tracking-tight text-on-surface">Properties, Blocks & Units</h2>
           <p className="text-on-surface-variant font-medium mt-1">
-            Hierarchical multi-tenant portfolio structure isolated for <span className="font-bold text-primary">Amani Property Group Ltd</span>.
+            Hierarchical multi-tenant portfolio structure isolated for <span className="font-bold text-primary">{orgName}</span>.
           </p>
         </div>
         <div className="flex flex-wrap gap-3">

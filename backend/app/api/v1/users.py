@@ -35,7 +35,7 @@ async def invite_user(
         last_name=data.last_name,
         email=data.email.lower(),
         phone_number=data.phone_number,
-        password_hash=get_password_hash("changeme123"),  # Default password, user should change
+        password_hash=get_password_hash("changeme123"),  # TODO: user must change on first login
         role=data.role,
     )
     db.add(user)
