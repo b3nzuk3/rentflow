@@ -5,11 +5,12 @@ from sqlalchemy import select
 from app.db.database import get_db
 from app.db.models import AuditLog
 from app.core.security import get_current_user
+from app.schemas.audit import AuditLogResponse
 
 router = APIRouter(redirect_slashes=False)
 
 
-@router.get("/")
+@router.get("/", response_model=list[AuditLogResponse])
 async def list_audit_logs(
     limit: int = 50,
     offset: int = 0,
