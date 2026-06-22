@@ -40,6 +40,7 @@ export default function DashboardPage() {
       if (userStr) {
         const userData = JSON.parse(userStr);
         setUser(userData as User);
+        setCurrentRole((userData.role as any) || "org_owner");
         setLoggedIn(true);
       }
 

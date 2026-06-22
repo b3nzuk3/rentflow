@@ -30,6 +30,7 @@ export default function LoginPage() {
       const data = await login(loginEmail, loginPassword);
       storeUser(data);
       setUser({ id: data.user_id, email: loginEmail, role: data.role, first_name: data.first_name, last_name: data.last_name, organization_id: data.organization_id, phone_number: "", is_active: true, created_at: "" } as any);
+      setCurrentRole(data.role as any);
       setLoggedIn(true);
       router.push("/dashboard");
     } catch (err: any) {
