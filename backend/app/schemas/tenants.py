@@ -20,7 +20,7 @@ class TenantUpdate(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     phone_number: Optional[str] = None
-    email: Optional[EmailStr] = None
+    email: Optional[str] = None
     national_id: Optional[str] = None
     status: Optional[TenantStatus] = None
 
@@ -39,3 +39,26 @@ class TenantResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class TenantInviteRequest(BaseModel):
+    # Tenant details
+    first_name: str
+    last_name: str
+    email: EmailStr
+    phone_number: str
+    national_id: Optional[str] = None
+    # Lease details
+    unit_id: str
+    monthly_rent: float
+    security_deposit: float
+    start_date: str
+    end_date: str
+
+
+class TenantInviteResponse(BaseModel):
+    tenant: TenantResponse
+    lease_id: str
+    invitation_token: str
+    invitation_link: str
+    message: str

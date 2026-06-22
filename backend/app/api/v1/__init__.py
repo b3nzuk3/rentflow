@@ -10,6 +10,7 @@ from app.api.v1.users import router as users_router
 from app.api.v1.notifications import router as notifications_router
 from app.api.v1.audit import router as audit_router
 from app.api.v1.reports import router as reports_router
+from app.api.v1.invitations import router as invitations_router
 
 __all__ = [
     "auth_router",
@@ -24,4 +25,5 @@ __all__ = [
     "notifications_router",
     "audit_router",
     "reports_router",
+    "invitations_router",
 ]

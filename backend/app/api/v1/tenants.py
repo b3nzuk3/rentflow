@@ -3,10 +3,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.db.database import get_db
-from app.db.models import Tenant, UserRole, Lease, Unit, Property
+from app.db.models import Tenant, User, UserRole, Lease, Unit, Property
 from app.core.security import get_current_user, require_roles
-from app.schemas.tenants import TenantCreate, TenantUpdate, TenantResponse
+from app.schemas.tenants import TenantCreate, TenantUpdate, TenantResponse, TenantInviteRequest, TenantInviteResponse
 from app.services.audit_service import log_action
+from app.services.email_service import send_invitation_email
+from app.core.config import get_settings
+
+settings = get_settings()
 
 router = APIRouter(redirect_slashes=False)
 
@@ -174,3 +178,110 @@ async def update_tenant(tenant_id: str, data: TenantUpdate, db: AsyncSession = D
     change_desc = ", ".join(f"{k}={v}" for k, v in changes.items())
     await log_action(db, current_user.organization_id, current_user.id, "UPDATE_TENANT", "Tenant", previous_value=f"{tenant.first_name} {tenant.last_name}", new_value=change_desc)
     return tenant
+
+
+@router.post("/invite", response_model=TenantInviteResponse)
+async def invite_tenant(
+    data: TenantInviteRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(require_roles(UserRole.ORG_OWNER, UserRole.PROPERTY_MANAGER)),
+):
+    """Create a tenant, lease, and invitation in one step."""
+    import uuid
+    from datetime import datetime, timedelta
+    from app.db.models import Invitation, TenantStatus, UnitStatus
+
+    # Check email not already used by a user
+    existing_user = await db.execute(select(User).where(User.email == data.email.lower()))
+    if existing_user.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="A user with this email already exists")
+
+    # Get unit and property info
+    unit = await db.get(Unit, data.unit_id)
+    if not unit:
+        raise HTTPException(status_code=404, detail="Unit not found")
+    if unit.status != "Vacant":
+        raise HTTPException(status_code=400, detail="Unit is not vacant")
+
+    prop = await db.get(Property, unit.property_id) if unit else None
+
+    # 1. Create tenant profile
+    tenant = Tenant(
+        id=str(uuid.uuid4()),
+        organization_id=current_user.organization_id,
+        first_name=data.first_name,
+        last_name=data.last_name,
+        phone_number=data.phone_number,
+        email=data.email.lower(),
+        national_id=data.national_id,
+        status=TenantStatus.INVITED,
+    )
+    db.add(tenant)
+    await db.flush()
+
+    # 2. Create lease (Draft status)
+    lease = Lease(
+        id=str(uuid.uuid4()),
+        organization_id=current_user.organization_id,
+        tenant_id=tenant.id,
+        unit_id=data.unit_id,
+        monthly_rent=int(data.monthly_rent),
+        security_deposit=int(data.security_deposit),
+        start_date=data.start_date,
+        end_date=data.end_date,
+    )
+    db.add(lease)
+
+    # 3. Update unit status to Reserved
+    unit.status = UnitStatus.RESERVED
+
+    # 4. Create invitation with token
+    token = str(uuid.uuid4())
+    invitation = Invitation(
+        id=str(uuid.uuid4()),
+        organization_id=current_user.organization_id,
+        tenant_id=tenant.id,
+        email=data.email.lower(),
+        phone=data.phone_number,
+        unit_id=data.unit_id,
+        property_name=prop.name if prop else None,
+        unit_code=unit.unit_code,
+        monthly_rent=int(data.monthly_rent),
+        token=token,
+        expires_at=datetime.utcnow() + timedelta(days=7),
+    )
+    db.add(invitation)
+    await db.flush()
+
+    # 5. Build invitation link
+    frontend_url = "http://localhost:3000"
+    invitation_link = f"{frontend_url}/activate?token={token}"
+
+    # 6. Send invitation email (stub)
+    inviter_name = f"{current_user.first_name} {current_user.last_name}"
+    await send_invitation_email(
+        to_email=data.email,
+        tenant_name=f"{data.first_name} {data.last_name}",
+        property_name=prop.name if prop else "Unknown",
+        unit_code=unit.unit_code,
+        invitation_link=invitation_link,
+        inviter_name=inviter_name,
+    )
+
+    # 7. Audit log
+    await log_action(
+        db,
+        current_user.organization_id,
+        current_user.id,
+        "INVITE_TENANT",
+        "Tenant",
+        new_value=f"{data.first_name} {data.last_name} ({data.email}) — Unit {unit.unit_code}",
+    )
+
+    return TenantInviteResponse(
+        tenant=TenantResponse.model_validate(tenant),
+        lease_id=lease.id,
+        invitation_token=token,
+        invitation_link=invitation_link,
+        message=f"Invitation sent to {data.email}. Link expires in 7 days.",
+    )

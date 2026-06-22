@@ -271,8 +271,13 @@ class Invitation(Base):
 
     id = Column(String(36), primary_key=True)
     organization_id = Column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    tenant_id = Column(String(36), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
     email = Column(String(255), nullable=False)
     phone = Column(String(20), nullable=True)
+    unit_id = Column(String(36), ForeignKey("units.id", ondelete="SET NULL"), nullable=True)
+    property_name = Column(String(255), nullable=True)
+    unit_code = Column(String(50), nullable=True)
+    monthly_rent = Column(Integer, nullable=True)
     token = Column(String(255), unique=True, nullable=False)
     role = Column(SAEnum(UserRole), default=UserRole.TENANT)
     expires_at = Column(DateTime(timezone=True), nullable=True)

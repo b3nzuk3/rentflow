@@ -16,6 +16,7 @@ from app.api.v1 import (
     notifications_router,
     audit_router,
     reports_router,
+    invitations_router,
 )
 
 settings = get_settings()
@@ -63,6 +64,7 @@ def create_application() -> FastAPI:
     app.include_router(notifications_router, prefix="/api/v1/notifications", tags=["notifications"])
     app.include_router(audit_router, prefix="/api/v1/audit", tags=["audit"])
     app.include_router(reports_router, prefix="/api/v1/reports", tags=["reports"])
+    app.include_router(invitations_router, prefix="/api/v1/invitations", tags=["invitations"])
 
     @app.get("/api/health", tags=["health"])
     async def health_check():
