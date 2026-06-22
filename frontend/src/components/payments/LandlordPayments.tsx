@@ -468,6 +468,14 @@ export function LandlordPayments() {
                 <p className="text-sm font-medium text-on-surface mt-0.5">{selectedPayment.payment_method}</p>
               </div>
               <div>
+                <p className="text-xs font-bold font-mono text-on-surface-variant uppercase tracking-wider">Billing Period</p>
+                <p className="text-sm font-medium text-on-surface mt-0.5">{selectedPayment.billing_period || "—"}</p>
+              </div>
+              <div>
+                <p className="text-xs font-bold font-mono text-on-surface-variant uppercase tracking-wider">Payment Type</p>
+                <p className="text-sm font-medium text-on-surface mt-0.5">{selectedPayment.payment_type || "—"}</p>
+              </div>
+              <div>
                 <p className="text-xs font-bold font-mono text-on-surface-variant uppercase tracking-wider">Date</p>
                 <p className="text-sm font-medium text-on-surface mt-0.5">
                   {formatDate(selectedPayment.payment_date)}
