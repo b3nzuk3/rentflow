@@ -13,12 +13,6 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
-  // FastAPI routes registered as "/" need trailing slash for mutating methods
-  if (['POST', 'PATCH', 'DELETE'].includes(config.method?.toUpperCase() || '')) {
-    if (config.url && !config.url.endsWith('/')) {
-      config.url = config.url + '/';
-    }
-  }
   return config;
 });
 
@@ -196,5 +190,33 @@ export async function getDashboardSummary(): Promise<{
 
 export async function getAuditLogs(limit = 50) {
   const { data } = await api.get(`/audit?limit=${limit}`);
+  return data;
+}
+
+// ── Invitations ──────────────────────────────────────────────────────────────
+
+export async function inviteTenant(payload: {
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone_number: string;
+  national_id?: string;
+  unit_id: string;
+  monthly_rent: number;
+  security_deposit: number;
+  start_date: string;
+  end_date: string;
+}) {
+  const { data } = await api.post("/tenants/invite", payload);
+  return data;
+}
+
+export async function validateInvitation(token: string) {
+  const { data } = await api.get(`/invitations/validate?token=${token}`);
+  return data;
+}
+
+export async function activateInvitation(token: string, password: string) {
+  const { data } = await api.post("/invitations/activate", { token, password });
   return data;
 }

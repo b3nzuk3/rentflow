@@ -6,8 +6,7 @@ import {
   getLeases,
   getUnits,
   getProperties,
-  createTenant,
-  createLease,
+  inviteTenant,
   signLease,
   deleteLease,
 } from "@/lib/api";
@@ -212,7 +211,14 @@ export function LandlordLeases() {
     return p ? p.name : "—";
   };
 
-  // ── Create tenant + lease ────────────────────────────────────────────────
+  // ── Invite result ────────────────────────────────────────────────────────
+
+  const [inviteResult, setInviteResult] = useState<{
+    invitation_link: string;
+    message: string;
+  } | null>(null);
+
+  // ── Create tenant + lease + invitation ────────────────────────────────────
 
   const handleInviteSubmit = async () => {
     if (!firstName.trim() || !lastName.trim() || !email.trim() || !phone.trim()) {
@@ -239,18 +245,12 @@ export function LandlordLeases() {
     setError(null);
 
     try {
-      const newTenant = await createTenant({
+      const result = await inviteTenant({
         first_name: firstName.trim(),
         last_name: lastName.trim(),
         email: email.trim(),
         phone_number: phone.trim(),
         national_id: nationalId.trim() || undefined,
-      });
-
-      setTenants((prev) => [...prev, newTenant]);
-
-      const newLease = await createLease({
-        tenant_id: newTenant.id,
         unit_id: selectedUnitId,
         monthly_rent: parseFloat(monthlyRent),
         security_deposit: parseFloat(securityDeposit),
@@ -258,18 +258,37 @@ export function LandlordLeases() {
         end_date: endDate,
       });
 
-      setLeases((prev) => [...prev, newLease]);
+      // Add the new lease to the table
+      setLeases((prev) => [
+        ...prev,
+        {
+          id: result.lease_id,
+          organization_id: "",
+          tenant_id: result.tenant.id,
+          unit_id: selectedUnitId,
+          monthly_rent: parseFloat(monthlyRent),
+          security_deposit: parseFloat(securityDeposit),
+          start_date: startDate,
+          end_date: endDate,
+          status: "Draft",
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      ]);
 
       // Update unit status locally
       setAllUnits((prev) =>
         prev.map((u) => (u.id === selectedUnitId ? { ...u, status: "Reserved" as const } : u))
       );
 
-      resetInviteForm();
-      setShowInviteModal(false);
-    } catch (err) {
-      console.error("Failed to create tenant/lease:", err);
-      setError("Failed to create tenant invite & lease. Please try again.");
+      // Show invite link
+      setInviteResult({
+        invitation_link: result.invitation_link,
+        message: result.message,
+      });
+    } catch (err: any) {
+      console.error("Failed to invite tenant:", err);
+      setError(err.response?.data?.detail || "Failed to create tenant invite. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -287,6 +306,7 @@ export function LandlordLeases() {
     setStartDate("");
     setEndDate("");
     setInviteStep(1);
+    setInviteResult(null);
   };
 
   // ── E-Sign lease ─────────────────────────────────────────────────────────
@@ -556,166 +576,218 @@ export function LandlordLeases() {
           resetInviteForm();
           setError(null);
         }}
-        title={inviteStep === 1 ? "Step 1: Tenant Details" : "Step 2: Lease Details"}
+        title={
+          inviteResult
+            ? "Invitation Sent!"
+            : inviteStep === 1
+            ? "Step 1: Tenant Details"
+            : "Step 2: Lease Details"
+        }
       >
-        {/* Step indicator */}
-        <div className="flex items-center gap-3 mb-2">
-          <div
-            className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-extrabold ${
-              inviteStep >= 1
-                ? "bg-primary text-white"
-                : "bg-surface-container text-on-surface-variant"
-            }`}
-          >
-            1
-          </div>
-          <div className={`flex-1 h-0.5 rounded ${inviteStep >= 2 ? "bg-primary" : "bg-outline-variant"}`} />
-          <div
-            className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-extrabold ${
-              inviteStep >= 2
-                ? "bg-primary text-white"
-                : "bg-surface-container text-on-surface-variant"
-            }`}
-          >
-            2
-          </div>
-        </div>
-        <div className="flex justify-between text-xs font-bold font-mono text-on-surface-variant mb-4">
-          <span>Tenant Info</span>
-          <span>Lease Terms</span>
-        </div>
-
-        {inviteStep === 1 ? (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <InputField label="First Name" value={firstName} onChange={setFirstName} placeholder="John" required />
-              <InputField label="Last Name" value={lastName} onChange={setLastName} placeholder="Doe" required />
+        {/* Success state: show invite link */}
+        {inviteResult ? (
+          <div className="space-y-5">
+            <div className="flex items-start gap-3 p-4 bg-emerald-50 rounded-xl">
+              <svg className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M20 6L9 17l-5-5" />
+              </svg>
+              <div>
+                <p className="text-sm font-bold text-emerald-700">{inviteResult.message}</p>
+                <p className="text-xs text-emerald-600 mt-1">Share this link with the tenant so they can activate their account.</p>
+              </div>
             </div>
-            <InputField label="Email" value={email} onChange={setEmail} type="email" placeholder="john@example.com" required />
-            <InputField label="Phone Number" value={phone} onChange={setPhone} placeholder="+254 700 000 000" required />
-            <InputField label="National ID" value={nationalId} onChange={setNationalId} placeholder="Optional" />
+
+            <div>
+              <label className="block text-xs font-bold font-mono text-on-surface-variant uppercase tracking-wider mb-1.5">
+                Invitation Link
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  readOnly
+                  value={inviteResult.invitation_link}
+                  className="flex-1 px-3 py-2.5 rounded-xl border border-outline-variant bg-surface-container/30 text-xs font-mono text-on-surface truncate"
+                />
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(inviteResult.invitation_link);
+                  }}
+                  className="px-4 py-2.5 bg-primary text-white rounded-xl text-xs font-bold hover:bg-primary-hover transition-all shrink-0"
+                >
+                  Copy
+                </button>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                onClick={() => {
+                  setShowInviteModal(false);
+                  resetInviteForm();
+                  setError(null);
+                }}
+                className="px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary-hover transition-all"
+              >
+                Done
+              </button>
+            </div>
           </div>
         ) : (
-          <div className="space-y-4">
-            {/* Property selector */}
-            <div>
-              <label className="block text-xs font-bold font-mono text-on-surface-variant uppercase tracking-wider mb-1.5">
-                Property <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={propertyFilter}
-                onChange={(e) => {
-                  setPropertyFilter(e.target.value);
-                  // Reset unit selection when property changes
-                  setSelectedUnitId("");
-                  setMonthlyRent("");
-                  setSecurityDeposit("");
-                }}
-                className="w-full px-4 py-2.5 rounded-xl border border-outline-variant bg-surface-container/30 text-sm font-medium text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+          <>
+            {/* Step indicator */}
+            <div className="flex items-center gap-3 mb-2">
+              <div
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-extrabold ${
+                  inviteStep >= 1 ? "bg-primary text-white" : "bg-surface-container text-on-surface-variant"
+                }`}
               >
-                <option value="All">Select a property...</option>
-                {properties.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Unit selector — filtered by selected property */}
-            <div>
-              <label className="block text-xs font-bold font-mono text-on-surface-variant uppercase tracking-wider mb-1.5">
-                Unit <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={selectedUnitId}
-                onChange={(e) => {
-                  setSelectedUnitId(e.target.value);
-                  const unit = vacantUnits.find((u) => u.id === e.target.value);
-                  if (unit) {
-                    setMonthlyRent(String(unit.rent_amount));
-                    setSecurityDeposit(String(unit.rent_amount));
-                  }
-                }}
-                required
-                className="w-full px-4 py-2.5 rounded-xl border border-outline-variant bg-surface-container/30 text-sm font-medium text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+                1
+              </div>
+              <div className={`flex-1 h-0.5 rounded ${inviteStep >= 2 ? "bg-primary" : "bg-outline-variant"}`} />
+              <div
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-extrabold ${
+                  inviteStep >= 2 ? "bg-primary text-white" : "bg-surface-container text-on-surface-variant"
+                }`}
               >
-                <option value="">Select a vacant unit...</option>
-                {vacantUnits.map((unit) => {
-                  const prop = properties.find((p) => p.id === unit.property_id);
-                  return (
-                    <option key={unit.id} value={unit.id}>
-                      {unit.unit_code} — {prop ? prop.name : "Unknown"} — KSh {unit.rent_amount.toLocaleString()}/mo
-                    </option>
-                  );
-                })}
-              </select>
-              {vacantUnits.length === 0 && (
-                <p className="text-xs text-amber-600 font-bold mt-1.5">
-                  {propertyFilter === "All"
-                    ? "No vacant units available across any property."
-                    : "No vacant units available for the selected property."}
-                </p>
-              )}
+                2
+              </div>
+            </div>
+            <div className="flex justify-between text-xs font-bold font-mono text-on-surface-variant mb-4">
+              <span>Tenant Info</span>
+              <span>Lease Terms</span>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <InputField label="Monthly Rent (KSh)" value={monthlyRent} onChange={setMonthlyRent} type="number" placeholder="50000" required />
-              <InputField label="Security Deposit (KSh)" value={securityDeposit} onChange={setSecurityDeposit} type="number" placeholder="50000" required />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <InputField label="Start Date" value={startDate} onChange={setStartDate} type="date" required />
-              <InputField label="End Date" value={endDate} onChange={setEndDate} type="date" required />
-            </div>
-          </div>
-        )}
+            {inviteStep === 1 ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <InputField label="First Name" value={firstName} onChange={setFirstName} placeholder="John" required />
+                  <InputField label="Last Name" value={lastName} onChange={setLastName} placeholder="Doe" required />
+                </div>
+                <InputField label="Email" value={email} onChange={setEmail} type="email" placeholder="john@example.com" required />
+                <InputField label="Phone Number" value={phone} onChange={setPhone} placeholder="+254 700 000 000" required />
+                <InputField label="National ID" value={nationalId} onChange={setNationalId} placeholder="Optional" />
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Property selector */}
+                <div>
+                  <label className="block text-xs font-bold font-mono text-on-surface-variant uppercase tracking-wider mb-1.5">
+                    Property <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={propertyFilter}
+                    onChange={(e) => {
+                      setPropertyFilter(e.target.value);
+                      setSelectedUnitId("");
+                      setMonthlyRent("");
+                      setSecurityDeposit("");
+                    }}
+                    className="w-full px-4 py-2.5 rounded-xl border border-outline-variant bg-surface-container/30 text-sm font-medium text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+                  >
+                    <option value="All">Select a property...</option>
+                    {properties.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                </div>
 
-        {/* Modal actions */}
-        <div className="flex items-center justify-between pt-2">
-          {inviteStep === 2 ? (
-            <button
-              onClick={() => setInviteStep(1)}
-              className="px-4 py-2.5 rounded-xl text-sm font-bold text-on-surface-variant hover:bg-surface-container transition-colors"
-            >
-              ← Back
-            </button>
-          ) : (
-            <div />
-          )}
-          <div className="flex gap-3">
-            <button
-              onClick={() => {
-                setShowInviteModal(false);
-                resetInviteForm();
-                setError(null);
-              }}
-              className="px-4 py-2.5 rounded-xl text-sm font-bold text-on-surface-variant border border-outline-variant hover:bg-surface-container transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleInviteSubmit}
-              disabled={submitting || (inviteStep === 2 && vacantUnits.length === 0)}
-              className="px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary-hover transition-all active:scale-95 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-            >
-              {submitting ? (
-                <>
-                  <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-                  </svg>
-                  Creating...
-                </>
-              ) : inviteStep === 1 ? (
-                "Next →"
+                {/* Unit selector — filtered by selected property */}
+                <div>
+                  <label className="block text-xs font-bold font-mono text-on-surface-variant uppercase tracking-wider mb-1.5">
+                    Unit <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={selectedUnitId}
+                    onChange={(e) => {
+                      setSelectedUnitId(e.target.value);
+                      const unit = vacantUnits.find((u) => u.id === e.target.value);
+                      if (unit) {
+                        setMonthlyRent(String(unit.rent_amount));
+                        setSecurityDeposit(String(unit.rent_amount));
+                      }
+                    }}
+                    required
+                    className="w-full px-4 py-2.5 rounded-xl border border-outline-variant bg-surface-container/30 text-sm font-medium text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+                  >
+                    <option value="">Select a vacant unit...</option>
+                    {vacantUnits.map((unit) => {
+                      const prop = properties.find((p) => p.id === unit.property_id);
+                      return (
+                        <option key={unit.id} value={unit.id}>
+                          {unit.unit_code} — {prop ? prop.name : "Unknown"} — KSh {unit.rent_amount.toLocaleString()}/mo
+                        </option>
+                      );
+                    })}
+                  </select>
+                  {vacantUnits.length === 0 && (
+                    <p className="text-xs text-amber-600 font-bold mt-1.5">
+                      {propertyFilter === "All"
+                        ? "No vacant units available across any property."
+                        : "No vacant units available for the selected property."}
+                    </p>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <InputField label="Monthly Rent (KSh)" value={monthlyRent} onChange={setMonthlyRent} type="number" placeholder="50000" required />
+                  <InputField label="Security Deposit (KSh)" value={securityDeposit} onChange={setSecurityDeposit} type="number" placeholder="50000" required />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <InputField label="Start Date" value={startDate} onChange={setStartDate} type="date" required />
+                  <InputField label="End Date" value={endDate} onChange={setEndDate} type="date" required />
+                </div>
+              </div>
+            )}
+
+            {/* Modal actions */}
+            <div className="flex items-center justify-between pt-2">
+              {inviteStep === 2 ? (
+                <button
+                  onClick={() => setInviteStep(1)}
+                  className="px-4 py-2.5 rounded-xl text-sm font-bold text-on-surface-variant hover:bg-surface-container transition-colors"
+                >
+                  ← Back
+                </button>
               ) : (
-                <>
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <path d="M20 6L9 17l-5-5" />
-                  </svg>
-                  Create Lease
-                </>
+                <div />
               )}
-            </button>
-          </div>
-        </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowInviteModal(false);
+                    resetInviteForm();
+                    setError(null);
+                  }}
+                  className="px-4 py-2.5 rounded-xl text-sm font-bold text-on-surface-variant border border-outline-variant hover:bg-surface-container transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleInviteSubmit}
+                  disabled={submitting || (inviteStep === 2 && vacantUnits.length === 0)}
+                  className="px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary-hover transition-all active:scale-95 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {submitting ? (
+                    <>
+                      <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                      </svg>
+                      Creating...
+                    </>
+                  ) : inviteStep === 1 ? (
+                    "Next →"
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M20 6L9 17l-5-5" />
+                      </svg>
+                      Create Lease
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </>
+        )}
       </Modal>
 
       {/* ── Delete Confirmation Modal ─────────────────────────────────────── */}
