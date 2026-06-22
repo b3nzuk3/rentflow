@@ -11,7 +11,11 @@ export const api = axios.create({
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("access_token");
   if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+    // Don't add auth header for login/signup/refresh endpoints
+    const url = config.url || "";
+    if (!url.includes("/auth/login") && !url.includes("/auth/signup") && !url.includes("/auth/refresh") && !url.includes("/invitations/") && !url.includes("/activate")) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
   }
   return config;
 });
