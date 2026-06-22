@@ -154,6 +154,19 @@ export async function verifyPayment(
   return data;
 }
 
+export async function createPayment(payload: {
+  lease_id: string;
+  amount: number;
+  payment_method: "M-Pesa Paybill" | "M-Pesa Buy Goods" | "Bank Transfer" | "Bank Deposit" | "Cash";
+  transaction_code: string;
+  payment_date: string;
+  verification_notes?: string;
+  receipt_attachment?: string;
+}): Promise<Payment> {
+  const { data } = await api.post("/payments", payload);
+  return data;
+}
+
 // ── Tenant Self-Service ──────────────────────────────────────────────────────
 
 export async function getMyTenantProfile() {
