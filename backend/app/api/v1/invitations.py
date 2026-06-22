@@ -95,8 +95,20 @@ async def activate_invitation(
     db.add(user)
 
     # Update tenant status to Active
-    from app.db.models import TenantStatus
+    from app.db.models import TenantStatus, LeaseStatus
     tenant.status = TenantStatus.ACTIVE
+
+    # Activate the associated lease (find by tenant_id and set to Active)
+    lease_result = await db.execute(
+        select(Lease).where(
+            Lease.tenant_id == tenant.id,
+            Lease.organization_id == invitation.organization_id,
+            Lease.status == LeaseStatus.DRAFT,
+        )
+    )
+    lease = lease_result.scalar_one_or_none()
+    if lease:
+        lease.status = LeaseStatus.ACTIVE
 
     await db.flush()
 
