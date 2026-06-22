@@ -5,12 +5,13 @@ import { api } from "@/lib/api";
 import {
   getLeases,
   getUnits,
+  getProperties,
   createTenant,
   createLease,
   signLease,
   deleteLease,
 } from "@/lib/api";
-import type { Lease, Tenant, Unit } from "@/types";
+import type { Lease, Tenant, Unit, Property } from "@/types";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -108,13 +109,14 @@ export function LandlordLeases() {
   // Data state
   const [leases, setLeases] = useState<Lease[]>([]);
   const [tenants, setTenants] = useState<Tenant[]>([]);
-  const [vacantUnits, setVacantUnits] = useState<Unit[]>([]);
   const [allUnits, setAllUnits] = useState<Unit[]>([]);
+  const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Filter
+  // Filters
   const [statusFilter, setStatusFilter] = useState<LeaseFilter>("All");
+  const [propertyFilter, setPropertyFilter] = useState<string>("All");
 
   // Modals
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -140,21 +142,30 @@ export function LandlordLeases() {
   // Delete confirmation
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
+  // ── Derived: vacant units filtered by selected property ────────────────────
+
+  const vacantUnits = allUnits.filter((u) => {
+    if (u.status !== "Vacant") return false;
+    if (propertyFilter !== "All" && u.property_id !== propertyFilter) return false;
+    return true;
+  });
+
   // ── Fetch data on mount ──────────────────────────────────────────────────
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [leasesRes, tenantsRes, unitsRes] = await Promise.all([
+      const [leasesRes, tenantsRes, unitsRes, propsRes] = await Promise.all([
         getLeases(),
         api.get("/tenants"),
         getUnits(),
+        getProperties(),
       ]);
       setLeases(leasesRes);
       setTenants(tenantsRes.data);
       setAllUnits(unitsRes);
-      setVacantUnits(unitsRes.filter((u) => u.status === "Vacant"));
+      setProperties(propsRes);
     } catch (err) {
       console.error("Failed to fetch data:", err);
       setError("Failed to load leases. Please try again.");
@@ -169,27 +180,41 @@ export function LandlordLeases() {
 
   // ── Filtered leases ──────────────────────────────────────────────────────
 
-  const filteredLeases =
-    statusFilter === "All" ? leases : leases.filter((l) => l.status === statusFilter);
+  const filteredLeases = leases.filter((l) => {
+    // Status filter
+    if (statusFilter !== "All" && l.status !== statusFilter) return false;
+    // Property filter — check if the lease's unit belongs to the selected property
+    if (propertyFilter !== "All") {
+      const unit = allUnits.find((u) => u.id === l.unit_id);
+      if (!unit || unit.property_id !== propertyFilter) return false;
+    }
+    return true;
+  });
 
-  // ── Helper: resolve tenant name from leases ──────────────────────────────
+  // ── Helper: resolve tenant name ──────────────────────────────────────────
 
   const getTenantName = (tenantId: string): string => {
     const t = tenants.find((t) => t.id === tenantId);
     return t ? `${t.first_name} ${t.last_name}` : "—";
   };
 
-  // ── Helper: resolve unit code from all units ──────────────────────────────
+  // ── Helper: resolve unit code ─────────────────────────────────────────────
 
   const getUnitCode = (unitId: string): string => {
     const u = allUnits.find((u) => u.id === unitId);
     return u ? u.unit_code : "—";
   };
 
+  // ── Helper: resolve property name ─────────────────────────────────────────
+
+  const getPropertyName = (propertyId: string): string => {
+    const p = properties.find((p) => p.id === propertyId);
+    return p ? p.name : "—";
+  };
+
   // ── Create tenant + lease ────────────────────────────────────────────────
 
   const handleInviteSubmit = async () => {
-    // Validate step 1
     if (!firstName.trim() || !lastName.trim() || !email.trim() || !phone.trim()) {
       setError("Please fill in all required tenant fields.");
       return;
@@ -200,7 +225,6 @@ export function LandlordLeases() {
       return;
     }
 
-    // Validate step 2
     if (!selectedUnitId || !monthlyRent || !securityDeposit || !startDate || !endDate) {
       setError("Please fill in all lease details.");
       return;
@@ -215,7 +239,6 @@ export function LandlordLeases() {
     setError(null);
 
     try {
-      // Step 1: Create tenant
       const newTenant = await createTenant({
         first_name: firstName.trim(),
         last_name: lastName.trim(),
@@ -226,7 +249,6 @@ export function LandlordLeases() {
 
       setTenants((prev) => [...prev, newTenant]);
 
-      // Step 2: Create draft lease
       const newLease = await createLease({
         tenant_id: newTenant.id,
         unit_id: selectedUnitId,
@@ -238,10 +260,11 @@ export function LandlordLeases() {
 
       setLeases((prev) => [...prev, newLease]);
 
-      // Remove unit from vacant list
-      setVacantUnits((prev) => prev.filter((u) => u.id !== selectedUnitId));
+      // Update unit status locally
+      setAllUnits((prev) =>
+        prev.map((u) => (u.id === selectedUnitId ? { ...u, status: "Reserved" as const } : u))
+      );
 
-      // Reset and close
       resetInviteForm();
       setShowInviteModal(false);
     } catch (err) {
@@ -348,28 +371,54 @@ export function LandlordLeases() {
         </div>
       )}
 
-      {/* Filter tabs */}
-      <div className="flex flex-wrap gap-2">
-        {LEASE_FILTERS.map((filter) => {
-          const count =
-            filter === "All"
-              ? leases.length
-              : leases.filter((l) => l.status === filter).length;
-          return (
-            <button
-              key={filter}
-              onClick={() => setStatusFilter(filter)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold font-mono transition-all active:scale-95 ${
-                statusFilter === filter
-                  ? "bg-primary text-white shadow-sm"
-                  : "bg-white border border-outline-variant text-on-surface-variant hover:border-primary/40 hover:text-on-surface"
-              }`}
-            >
-              {filter}
-              <span className="ml-1.5 opacity-70">({count})</span>
-            </button>
-          );
-        })}
+      {/* Filters row */}
+      <div className="flex flex-col sm:flex-row gap-4">
+        {/* Status filter */}
+        <div className="flex flex-wrap gap-2">
+          {LEASE_FILTERS.map((filter) => {
+            const count =
+              filter === "All"
+                ? filteredLeases.length
+                : leases.filter((l) => {
+                    if (l.status !== filter) return false;
+                    if (propertyFilter !== "All") {
+                      const unit = allUnits.find((u) => u.id === l.unit_id);
+                      if (!unit || unit.property_id !== propertyFilter) return false;
+                    }
+                    return true;
+                  }).length;
+            return (
+              <button
+                key={filter}
+                onClick={() => setStatusFilter(filter)}
+                className={`px-4 py-2 rounded-xl text-xs font-bold font-mono transition-all active:scale-95 ${
+                  statusFilter === filter
+                    ? "bg-primary text-white shadow-sm"
+                    : "bg-white border border-outline-variant text-on-surface-variant hover:border-primary/40 hover:text-on-surface"
+                }`}
+              >
+                {filter}
+                <span className="ml-1.5 opacity-70">({count})</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Property filter */}
+        <div className="sm:ml-auto">
+          <select
+            value={propertyFilter}
+            onChange={(e) => setPropertyFilter(e.target.value)}
+            className="px-4 py-2 rounded-xl border border-outline-variant bg-white text-xs font-bold font-mono text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+          >
+            <option value="All">All Properties</option>
+            {properties.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Leases table */}
@@ -394,9 +443,9 @@ export function LandlordLeases() {
               <line x1="16" y1="17" x2="8" y2="17" />
             </svg>
             <p className="text-sm font-bold text-on-surface">
-              {statusFilter === "All"
+              {statusFilter === "All" && propertyFilter === "All"
                 ? "No lease agreements yet."
-                : `No ${statusFilter.toLowerCase()} leases.`}
+                : "No leases match the selected filters."}
             </p>
             <p className="text-xs text-on-surface-variant mt-1">
               Click "New Tenant Invite &amp; Lease" to get started.
@@ -409,6 +458,9 @@ export function LandlordLeases() {
                 <tr className="border-b border-outline-variant bg-surface-container/40">
                   <th className="px-5 py-3.5 text-xs font-bold font-mono text-on-surface-variant uppercase tracking-wider">
                     Tenant
+                  </th>
+                  <th className="px-5 py-3.5 text-xs font-bold font-mono text-on-surface-variant uppercase tracking-wider">
+                    Property
                   </th>
                   <th className="px-5 py-3.5 text-xs font-bold font-mono text-on-surface-variant uppercase tracking-wider">
                     Unit Space
@@ -428,60 +480,68 @@ export function LandlordLeases() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-outline-variant/50">
-                {filteredLeases.map((lease) => (
-                  <tr key={lease.id} className="hover:bg-surface-container/20 transition-colors">
-                    <td className="px-5 py-4">
-                      <span className="text-sm font-bold text-on-surface">
-                        {getTenantName(lease.tenant_id)}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4">
-                      <span className="text-sm font-mono font-semibold text-on-surface-variant">
-                        {getUnitCode(lease.unit_id)}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4">
-                      <span className="text-sm font-bold text-on-surface">
-                        {formatCurrency(lease.monthly_rent)}
-                      </span>
-                      <span className="text-xs text-on-surface-variant font-medium ml-1">
-                        /mo
-                      </span>
-                    </td>
-                    <td className="px-5 py-4">
-                      <span className="text-sm font-medium text-on-surface-variant">
-                        {formatDate(lease.start_date)} — {formatDate(lease.end_date)}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4">
-                      <StatusBadge status={lease.status} />
-                    </td>
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-2">
-                        {lease.status === "Draft" && (
+                {filteredLeases.map((lease) => {
+                  const unit = allUnits.find((u) => u.id === lease.unit_id);
+                  return (
+                    <tr key={lease.id} className="hover:bg-surface-container/20 transition-colors">
+                      <td className="px-5 py-4">
+                        <span className="text-sm font-bold text-on-surface">
+                          {getTenantName(lease.tenant_id)}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4">
+                        <span className="text-sm font-medium text-on-surface-variant">
+                          {unit ? getPropertyName(unit.property_id) : "—"}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4">
+                        <span className="text-sm font-mono font-semibold text-on-surface-variant">
+                          {getUnitCode(lease.unit_id)}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4">
+                        <span className="text-sm font-bold text-on-surface">
+                          {formatCurrency(lease.monthly_rent)}
+                        </span>
+                        <span className="text-xs text-on-surface-variant font-medium ml-1">
+                          /mo
+                        </span>
+                      </td>
+                      <td className="px-5 py-4">
+                        <span className="text-sm font-medium text-on-surface-variant">
+                          {formatDate(lease.start_date)} — {formatDate(lease.end_date)}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4">
+                        <StatusBadge status={lease.status} />
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-2">
+                          {lease.status === "Draft" && (
+                            <button
+                              onClick={() => handleESign(lease.id)}
+                              className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 transition-all active:scale-95 flex items-center gap-1.5"
+                            >
+                              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                <path d="M20 6L9 17l-5-5" />
+                              </svg>
+                              E-Sign
+                            </button>
+                          )}
                           <button
-                            onClick={() => handleESign(lease.id)}
-                            className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 transition-all active:scale-95 flex items-center gap-1.5"
+                            onClick={() => setDeleteConfirm(lease.id)}
+                            className="p-1.5 rounded-lg hover:bg-red-50 text-on-surface-variant hover:text-red-600 transition-colors"
+                            title="Delete lease"
                           >
-                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                              <path d="M20 6L9 17l-5-5" />
+                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
                             </svg>
-                            E-Sign
                           </button>
-                        )}
-                        <button
-                          onClick={() => setDeleteConfirm(lease.id)}
-                          className="p-1.5 rounded-lg hover:bg-red-50 text-on-surface-variant hover:text-red-600 transition-colors"
-                          title="Delete lease"
-                        >
-                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                          </svg>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -528,45 +588,39 @@ export function LandlordLeases() {
         {inviteStep === 1 ? (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <InputField
-                label="First Name"
-                value={firstName}
-                onChange={setFirstName}
-                placeholder="John"
-                required
-              />
-              <InputField
-                label="Last Name"
-                value={lastName}
-                onChange={setLastName}
-                placeholder="Doe"
-                required
-              />
+              <InputField label="First Name" value={firstName} onChange={setFirstName} placeholder="John" required />
+              <InputField label="Last Name" value={lastName} onChange={setLastName} placeholder="Doe" required />
             </div>
-            <InputField
-              label="Email"
-              value={email}
-              onChange={setEmail}
-              type="email"
-              placeholder="john@example.com"
-              required
-            />
-            <InputField
-              label="Phone Number"
-              value={phone}
-              onChange={setPhone}
-              placeholder="+254 700 000 000"
-              required
-            />
-            <InputField
-              label="National ID"
-              value={nationalId}
-              onChange={setNationalId}
-              placeholder="Optional"
-            />
+            <InputField label="Email" value={email} onChange={setEmail} type="email" placeholder="john@example.com" required />
+            <InputField label="Phone Number" value={phone} onChange={setPhone} placeholder="+254 700 000 000" required />
+            <InputField label="National ID" value={nationalId} onChange={setNationalId} placeholder="Optional" />
           </div>
         ) : (
           <div className="space-y-4">
+            {/* Property selector */}
+            <div>
+              <label className="block text-xs font-bold font-mono text-on-surface-variant uppercase tracking-wider mb-1.5">
+                Property <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={propertyFilter}
+                onChange={(e) => {
+                  setPropertyFilter(e.target.value);
+                  // Reset unit selection when property changes
+                  setSelectedUnitId("");
+                  setMonthlyRent("");
+                  setSecurityDeposit("");
+                }}
+                className="w-full px-4 py-2.5 rounded-xl border border-outline-variant bg-surface-container/30 text-sm font-medium text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+              >
+                <option value="All">Select a property...</option>
+                {properties.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Unit selector — filtered by selected property */}
             <div>
               <label className="block text-xs font-bold font-mono text-on-surface-variant uppercase tracking-wider mb-1.5">
                 Unit <span className="text-red-500">*</span>
@@ -585,51 +639,31 @@ export function LandlordLeases() {
                 className="w-full px-4 py-2.5 rounded-xl border border-outline-variant bg-surface-container/30 text-sm font-medium text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
               >
                 <option value="">Select a vacant unit...</option>
-                {vacantUnits.map((unit) => (
-                  <option key={unit.id} value={unit.id}>
-                    {unit.unit_code} — KSh {unit.rent_amount.toLocaleString()}/mo
-                  </option>
-                ))}
+                {vacantUnits.map((unit) => {
+                  const prop = properties.find((p) => p.id === unit.property_id);
+                  return (
+                    <option key={unit.id} value={unit.id}>
+                      {unit.unit_code} — {prop ? prop.name : "Unknown"} — KSh {unit.rent_amount.toLocaleString()}/mo
+                    </option>
+                  );
+                })}
               </select>
               {vacantUnits.length === 0 && (
                 <p className="text-xs text-amber-600 font-bold mt-1.5">
-                  No vacant units available. Add units first.
+                  {propertyFilter === "All"
+                    ? "No vacant units available across any property."
+                    : "No vacant units available for the selected property."}
                 </p>
               )}
             </div>
+
             <div className="grid grid-cols-2 gap-4">
-              <InputField
-                label="Monthly Rent (KSh)"
-                value={monthlyRent}
-                onChange={setMonthlyRent}
-                type="number"
-                placeholder="50000"
-                required
-              />
-              <InputField
-                label="Security Deposit (KSh)"
-                value={securityDeposit}
-                onChange={setSecurityDeposit}
-                type="number"
-                placeholder="50000"
-                required
-              />
+              <InputField label="Monthly Rent (KSh)" value={monthlyRent} onChange={setMonthlyRent} type="number" placeholder="50000" required />
+              <InputField label="Security Deposit (KSh)" value={securityDeposit} onChange={setSecurityDeposit} type="number" placeholder="50000" required />
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <InputField
-                label="Start Date"
-                value={startDate}
-                onChange={setStartDate}
-                type="date"
-                required
-              />
-              <InputField
-                label="End Date"
-                value={endDate}
-                onChange={setEndDate}
-                type="date"
-                required
-              />
+              <InputField label="Start Date" value={startDate} onChange={setStartDate} type="date" required />
+              <InputField label="End Date" value={endDate} onChange={setEndDate} type="date" required />
             </div>
           </div>
         )}
