@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
-from app.db.models import PaymentStatus, PaymentMethod
+from app.db.models import PaymentStatus, PaymentMethod, PaymentType
 
 
 class PaymentCreate(BaseModel):
@@ -10,9 +10,12 @@ class PaymentCreate(BaseModel):
     payment_method: PaymentMethod
     transaction_code: str
     payment_date: str
-    submitted_by: str
+    submitted_by: Optional[str] = None
     verification_notes: Optional[str] = None
     receipt_attachment: Optional[str] = None
+    # Billing period tracking
+    payment_type: PaymentType = PaymentType.MONTHLY
+    billing_period: Optional[str] = None  # Format: "YYYY-MM"
 
 
 class PaymentVerify(BaseModel):
@@ -33,6 +36,10 @@ class PaymentResponse(BaseModel):
     verification_notes: Optional[str]
     status: PaymentStatus
     receipt_attachment: Optional[str]
+    payment_type: PaymentType
+    billing_period: Optional[str]
+    period_start: Optional[str]
+    period_end: Optional[str]
     created_at: datetime
     updated_at: datetime
 

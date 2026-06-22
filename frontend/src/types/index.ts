@@ -101,6 +101,26 @@ export interface Payment {
   verification_notes: string | null;
   status: "Pending" | "Verified" | "Rejected" | "Refunded";
   receipt_attachment: string | null;
+  payment_type: "Monthly Rent" | "Advance Payment" | "Arrears" | "Partial Payment" | "Security Deposit";
+  billing_period: string | null;
+  period_start: string | null;
+  period_end: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RentSchedule {
+  id: string;
+  organization_id: string;
+  lease_id: string;
+  billing_period: string;
+  period_start: string;
+  period_end: string;
+  expected_amount: number;
+  paid_amount: number;
+  balance: number;
+  status: string;
+  due_date: string | null;
   created_at: string;
   updated_at: string;
 }

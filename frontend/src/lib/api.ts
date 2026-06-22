@@ -162,6 +162,8 @@ export async function createPayment(payload: {
   payment_date: string;
   verification_notes?: string;
   receipt_attachment?: string;
+  payment_type?: "Monthly Rent" | "Advance Payment" | "Arrears" | "Partial Payment" | "Security Deposit";
+  billing_period?: string;
 }): Promise<Payment> {
   const { data } = await api.post("/payments", payload);
   return data;
@@ -179,8 +181,8 @@ export async function getMyLeases() {
   return data;
 }
 
-export async function getMyPayments(): Promise<Payment[]> {
-  const { data } = await api.get("/tenants/me/payments");
+export async function getRentSchedule(leaseId: string) {
+  const { data } = await api.get(`/payments/schedule/${leaseId}`);
   return data;
 }
 

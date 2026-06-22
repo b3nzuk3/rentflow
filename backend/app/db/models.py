@@ -67,6 +67,14 @@ class PaymentMethod(str, enum.Enum):
     CASH = "Cash"
 
 
+class PaymentType(str, enum.Enum):
+    MONTHLY = "Monthly Rent"
+    ADVANCE = "Advance Payment"
+    ARREARS = "Arrears"
+    PARTIAL = "Partial Payment"
+    DEPOSIT = "Security Deposit"
+
+
 class NotificationChannel(str, enum.Enum):
     SMS = "SMS"
     EMAIL = "Email"
@@ -104,6 +112,7 @@ class Organization(Base):
     payments = relationship("Payment", back_populates="organization")
     audit_logs = relationship("AuditLog", back_populates="organization")
     notifications = relationship("Notification", back_populates="organization")
+    rent_schedules = relationship("RentSchedule", back_populates="organization")
 
 
 class User(Base):
@@ -211,6 +220,7 @@ class Lease(Base):
     tenant = relationship("Tenant", back_populates="leases")
     unit = relationship("Unit", back_populates="leases")
     payments = relationship("Payment", back_populates="lease")
+    rent_schedules = relationship("RentSchedule", back_populates="lease")
 
 
 class Payment(Base):
@@ -228,11 +238,37 @@ class Payment(Base):
     verification_notes = Column(Text, nullable=True)
     status = Column(SAEnum(PaymentStatus), default=PaymentStatus.PENDING)
     receipt_attachment = Column(Text, nullable=True)
+    # Billing period tracking
+    payment_type = Column(SAEnum(PaymentType), default=PaymentType.MONTHLY)
+    billing_period = Column(String(7), nullable=True)  # Format: "YYYY-MM"
+    period_start = Column(String(10), nullable=True)   # Format: "YYYY-MM-DD"
+    period_end = Column(String(10), nullable=True)     # Format: "YYYY-MM-DD"
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     organization = relationship("Organization", back_populates="payments")
     lease = relationship("Lease", back_populates="payments")
+
+
+class RentSchedule(Base):
+    __tablename__ = "rent_schedules"
+
+    id = Column(String(36), primary_key=True)
+    organization_id = Column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    lease_id = Column(String(36), ForeignKey("leases.id", ondelete="CASCADE"), nullable=False)
+    billing_period = Column(String(7), nullable=False)  # Format: "YYYY-MM"
+    period_start = Column(String(10), nullable=False)   # Format: "YYYY-MM-DD"
+    period_end = Column(String(10), nullable=False)     # Format: "YYYY-MM-DD"
+    expected_amount = Column(Integer, nullable=False, default=0)
+    paid_amount = Column(Integer, nullable=False, default=0)
+    balance = Column(Integer, nullable=False, default=0)  # expected - paid (can be negative for advance)
+    status = Column(String(20), default="Pending")  # Pending, Paid, Partial, Overdue, Advance
+    due_date = Column(String(10), nullable=True)    # Format: "YYYY-MM-DD"
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    organization = relationship("Organization", back_populates="rent_schedules")
+    lease = relationship("Lease", back_populates="rent_schedules")
 
 
 class AuditLog(Base):
