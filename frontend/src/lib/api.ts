@@ -1,7 +1,7 @@
 import axios from "axios";
 import { LoginResponse, Property, Unit, Tenant, Lease, Payment } from "@/types";
 
-const API_BASE = 'http://localhost:8000/api/v1';
+const API_BASE = 'http://172.18.110.243:8000/api/v1';
 
 export const api = axios.create({
   baseURL: API_BASE,
