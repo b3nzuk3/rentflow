@@ -118,12 +118,16 @@ export function TenantDashboard() {
       });
     }
 
-    // If no schedule, generate from lease start
+    // If no schedule, generate from lease start (always include current month)
     if (options.length === 0 && activeLease) {
       const start = new Date(activeLease.lease.start_date);
       const now = new Date();
-      const current = new Date(start);
-      while (current <= now) {
+      // Start from lease start, but always include the current month
+      const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const effectiveStart = start < currentMonth ? start : currentMonth;
+      const current = new Date(effectiveStart);
+      // Generate at least the current month, up to today
+      do {
         const period = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, "0")}`;
         // Check if already in options
         if (!options.find((o) => o.period === period)) {
@@ -142,7 +146,7 @@ export function TenantDashboard() {
           });
         }
         current.setMonth(current.getMonth() + 1);
-      }
+      } while (current <= now);
     }
 
     // Allow one future month for advance payment
