@@ -8,7 +8,7 @@ import { useAuthStore } from "@/stores/authStore";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { setUser, setLoggedIn } = useAuthStore();
+  const { setUser, setLoggedIn, setCurrentRole } = useAuthStore();
   const [viewMode, setViewMode] = useState<"login" | "signup">("login");
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
