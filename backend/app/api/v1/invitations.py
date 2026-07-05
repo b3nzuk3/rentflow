@@ -110,6 +110,13 @@ async def activate_invitation(
     if lease:
         lease.status = LeaseStatus.ACTIVE
 
+        # Update unit status to Occupied
+        from app.db.models import UnitStatus
+        unit_result = await db.execute(select(Unit).where(Unit.id == lease.unit_id))
+        unit = unit_result.scalar_one_or_none()
+        if unit:
+            unit.status = UnitStatus.OCCUPIED
+
     await db.flush()
 
     await log_action(

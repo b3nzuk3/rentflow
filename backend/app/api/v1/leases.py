@@ -78,7 +78,7 @@ async def sign_lease(lease_id: str, db: AsyncSession = Depends(get_db), current_
 @router.patch("/{lease_id}", response_model=LeaseResponse)
 async def update_lease(lease_id: str, data: LeaseUpdate, db: AsyncSession = Depends(get_db),
                        current_user=Depends(require_roles(UserRole.ORG_OWNER, UserRole.PROPERTY_MANAGER))):
-    result = await db.execute(select(Lease).where(Lease.id == lease_id))
+    result = await db.execute(select(Lease).where(Lease.id == uuid_lib.UUID(lease_id)))
     lease = result.scalar_one_or_none()
     if not lease:
         raise HTTPException(status_code=404, detail="Lease not found")
@@ -90,3 +90,32 @@ async def update_lease(lease_id: str, data: LeaseUpdate, db: AsyncSession = Depe
     change_desc = ", ".join(f"{k}={v}" for k, v in changes.items())
     await log_action(db, current_user.organization_id, current_user.id, "UPDATE_LEASE", "Lease", new_value=change_desc)
     return lease
+
+
+@router.delete("/{lease_id}")
+async def delete_lease(
+    lease_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(require_roles(UserRole.ORG_OWNER, UserRole.PROPERTY_MANAGER)),
+):
+    result = await db.execute(
+        select(Lease).where(
+            Lease.id == uuid_lib.UUID(lease_id),
+            Lease.organization_id == current_user.organization_id,
+        )
+    )
+    lease = result.scalar_one_or_none()
+    if not lease:
+        raise HTTPException(status_code=404, detail="Lease not found")
+
+    # Free up the unit
+    unit_result = await db.execute(select(Unit).where(Unit.id == lease.unit_id))
+    unit = unit_result.scalar_one_or_none()
+    if unit and unit.status == UnitStatus.OCCUPIED:
+        unit.status = UnitStatus.VACANT
+
+    lease_desc = f"Lease {lease_id} ({lease.start_date} to {lease.end_date})"
+    await db.delete(lease)
+    await db.flush()
+    await log_action(db, current_user.organization_id, current_user.id, "DELETE_LEASE", "Lease", previous_value=lease_desc)
+    return {"detail": "Lease deleted"}
