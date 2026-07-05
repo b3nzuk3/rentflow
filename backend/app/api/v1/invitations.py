@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -28,7 +28,7 @@ async def validate_invitation(token: str, db: AsyncSession = Depends(get_db)):
     if not invitation:
         return InvitationValidateResponse(valid=False, error="Invalid invitation link")
 
-    if invitation.expires_at and invitation.expires_at < datetime.utcnow():
+    if invitation.expires_at and invitation.expires_at < datetime.now(timezone.utc):
         return InvitationValidateResponse(valid=False, error="This invitation link has expired")
 
     # Check if user already activated
@@ -64,7 +64,7 @@ async def activate_invitation(
     if not invitation:
         raise HTTPException(status_code=400, detail="Invalid invitation link")
 
-    if invitation.expires_at and invitation.expires_at < datetime.utcnow():
+    if invitation.expires_at and invitation.expires_at < datetime.now(timezone.utc):
         raise HTTPException(status_code=400, detail="This invitation link has expired")
 
     # Check existing user
