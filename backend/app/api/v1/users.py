@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+import uuid as uuid_lib
 
 from app.db.database import get_db
 from app.db.models import User, UserRole
@@ -80,7 +81,7 @@ async def update_my_profile(
 @router.patch("/{user_id}/toggle")
 async def toggle_user_active(user_id: str, db: AsyncSession = Depends(get_db),
                               current_user=Depends(require_roles(UserRole.ORG_OWNER, UserRole.PROPERTY_MANAGER))):
-    result = await db.execute(select(User).where(User.id == user_id))
+    result = await db.execute(select(User).where(User.id == uuid_lib.UUID(user_id)))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")

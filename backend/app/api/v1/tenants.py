@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+import uuid as uuid_lib
 
 from app.db.database import get_db
 from app.db.models import Tenant, User, UserRole, Lease, Unit, Property
@@ -156,7 +157,7 @@ async def create_tenant(
 
 @router.get("/{tenant_id}", response_model=TenantResponse)
 async def get_tenant(tenant_id: str, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
-    result = await db.execute(select(Tenant).where(Tenant.id == tenant_id))
+    result = await db.execute(select(Tenant).where(Tenant.id == uuid_lib.UUID(tenant_id)))
     tenant = result.scalar_one_or_none()
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
@@ -166,7 +167,7 @@ async def get_tenant(tenant_id: str, db: AsyncSession = Depends(get_db), current
 @router.patch("/{tenant_id}", response_model=TenantResponse)
 async def update_tenant(tenant_id: str, data: TenantUpdate, db: AsyncSession = Depends(get_db),
                         current_user=Depends(require_roles(UserRole.ORG_OWNER, UserRole.PROPERTY_MANAGER))):
-    result = await db.execute(select(Tenant).where(Tenant.id == tenant_id))
+    result = await db.execute(select(Tenant).where(Tenant.id == uuid_lib.UUID(tenant_id)))
     tenant = result.scalar_one_or_none()
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")

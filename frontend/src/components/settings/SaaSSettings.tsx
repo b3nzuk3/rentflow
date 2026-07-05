@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import {
-  Building, User, Users, Shield, Bell, CreditCard, Layers, FileText, Download,
+  Building, UserCircle, Users, Shield, Bell, CreditCard, Layers, FileText, Download,
   Check, X, Plus, Lock, Phone, Mail, Globe, Settings, ChevronRight, Search,
   AlertTriangle, CheckCircle, Info, Eye, EyeOff, Smartphone, MapPin, Laptop
 } from "lucide-react";
@@ -13,7 +13,7 @@ type SettingsTab = "org_profile" | "my_account" | "users_roles" | "security" | "
 
 const tabs: { key: SettingsTab; label: string; icon: React.ElementType; ownerOnly?: boolean }[] = [
   { key: "org_profile", label: "Organization Profile", icon: Building },
-  { key: "my_account", label: "My Account Profile", icon: User },
+  { key: "my_account", label: "My Account Profile", icon: UserCircle },
   { key: "users_roles", label: "Users & Core Roles", icon: Users },
   { key: "security", label: "Cryptographic Security", icon: Shield },
   { key: "notifications", label: "Notification Channels", icon: Bell },

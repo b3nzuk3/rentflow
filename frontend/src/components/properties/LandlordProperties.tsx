@@ -5,6 +5,7 @@ import { api } from "@/lib/api";
 import type { Property, Block, Unit } from "@/types";
 import { Building, Plus, MapPin, ChevronRight, Layers, Trash2, Lock, Check, X } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
+import { useDataRefresh, notifyDataChanged } from "@/lib/refresh";
 
 export function LandlordProperties() {
   const { organization } = useAuthStore();
@@ -36,6 +37,8 @@ export function LandlordProperties() {
     loadData();
   }, []);
 
+
+
   const loadData = async () => {
     try {
       const [propsRes, blocksRes, unitsRes] = await Promise.all([
@@ -57,6 +60,8 @@ export function LandlordProperties() {
     }
   };
 
+  useDataRefresh(loadData);
+
   const currentProp = properties.find(p => p.id === selectedPropId);
   const currentPropBlocks = blocks.filter(b => b.property_id === selectedPropId);
   const currentUnits = units.filter(u => u.property_id === selectedPropId);
@@ -74,6 +79,7 @@ export function LandlordProperties() {
       await api.post("/properties", { name: propName, location: propLoc, description: propDesc });
       setPropName(""); setPropDesc(""); setShowAddPropModal(false);
       loadData();
+      notifyDataChanged();
     } catch (err) { console.error("Failed to add property", err); }
   };
 
@@ -84,6 +90,7 @@ export function LandlordProperties() {
       await api.post("/blocks", { property_id: selectedPropId, name: blockName });
       setBlockName(""); setShowAddBlockModal(false);
       loadData();
+      notifyDataChanged();
     } catch (err) { console.error("Failed to add block", err); }
   };
 
@@ -100,6 +107,7 @@ export function LandlordProperties() {
       });
       setUnitCode(""); setShowAddUnitModal(false);
       loadData();
+      notifyDataChanged();
     } catch (err) { console.error("Failed to add unit", err); }
   };
 
@@ -125,6 +133,7 @@ export function LandlordProperties() {
       }
       setDeleteTarget(null);
       loadData();
+      notifyDataChanged();
     } catch (err) { console.error("Failed to delete", err); }
   };
 
@@ -132,6 +141,7 @@ export function LandlordProperties() {
     try {
       await api.patch(`/units/${unitId}/status`, { status });
       loadData();
+      notifyDataChanged();
     } catch (err) { console.error("Failed to update unit status", err); }
   };
 

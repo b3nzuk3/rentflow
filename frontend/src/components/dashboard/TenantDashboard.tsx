@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { api, createPayment, getRentSchedule } from "@/lib/api";
 import type { Tenant, Payment, RentSchedule } from "@/types";
+import { useDataRefresh, notifyDataChanged } from "@/lib/refresh";
 
 interface LeaseData {
   lease: {
@@ -98,6 +99,8 @@ export function TenantDashboard() {
       setLoading(false);
     }
   }
+
+  useDataRefresh(loadData);
 
   const activeLease = leases[0];
   const totalPaid = payments.filter((p) => p.status === "Verified").reduce((s, p) => s + p.amount, 0);
@@ -209,6 +212,7 @@ export function TenantDashboard() {
       ]);
       setPayments(paymentsRes.data);
       setSchedule(scheduleRes || []);
+      notifyDataChanged();
       setTimeout(() => {
         setShowPaymentForm(false);
         setPaymentSuccess(false);

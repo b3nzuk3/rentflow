@@ -40,9 +40,8 @@ async def create_unit(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(require_roles(UserRole.ORG_OWNER, UserRole.PROPERTY_MANAGER)),
 ):
-    import uuid
     unit = Unit(
-        id=str(uuid.uuid4()),
+        id=str(uuid_lib.uuid4()),
         organization_id=current_user.organization_id,
         property_id=data.property_id,
         block_id=data.block_id,

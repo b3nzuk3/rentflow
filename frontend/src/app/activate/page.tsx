@@ -5,10 +5,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { validateInvitation, activateInvitation } from "@/lib/api";
 import { Building, Lock, User, Check, X, AlertTriangle } from "lucide-react";
 
-export default function ActivatePage() {
+import { Suspense } from "react";
+
+function ActivatePageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const token = searchParams.get("token") || "";
+  const token = searchParams?.get("token") || "";
 
   const [validating, setValidating] = useState(true);
   const [valid, setValid] = useState(false);
@@ -218,5 +220,17 @@ export default function ActivatePage() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function ActivatePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-background-custom">
+        <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+      </div>
+    }>
+      <ActivatePageInner />
+    </Suspense>
   );
 }

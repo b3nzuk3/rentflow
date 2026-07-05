@@ -11,6 +11,7 @@ import {
   getStoredUser,
 } from "@/lib/api";
 import type { Payment, Lease, Tenant, Unit, Property } from "@/types";
+import { useDataRefresh, notifyDataChanged } from "@/lib/refresh";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -102,6 +103,7 @@ export function LandlordPayments() {
 
   // ── Fetch all data on mount ──────────────────────────────────────────────
 
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -126,9 +128,12 @@ export function LandlordPayments() {
     }
   }, []);
 
+  useDataRefresh(fetchData);
+
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
 
   // ── Resolve display names ────────────────────────────────────────────────
 
@@ -197,6 +202,7 @@ export function LandlordPayments() {
             : p
         )
       );
+      notifyDataChanged();
       setSelectedPayment((prev) => (prev ? { ...prev, status: updated.status, verification_notes: updated.verification_notes } : null));
       setVerificationNotes("");
     } catch (err) {

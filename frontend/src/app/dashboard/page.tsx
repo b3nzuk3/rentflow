@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useAuthStore } from "@/stores/authStore";
 import { api } from "@/lib/api";
+import { useDataRefresh } from "@/lib/refresh";
 import type { DashboardSummary, Organization, LandlordTab, User } from "@/types";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { LandlordDashboard } from "@/components/dashboard/LandlordDashboard";
@@ -34,6 +35,7 @@ export default function DashboardPage() {
     loadData();
   }, []);
 
+
   const loadData = async () => {
     try {
       const userStr = localStorage.getItem("user");
@@ -64,6 +66,9 @@ export default function DashboardPage() {
       setLoading(false);
     }
   };
+
+  // Refresh summary when any component makes a change
+  useDataRefresh(loadData);
 
   const handleLogout = () => {
     localStorage.removeItem("access_token");

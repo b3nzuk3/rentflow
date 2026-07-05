@@ -11,6 +11,7 @@ import {
   deleteLease,
 } from "@/lib/api";
 import type { Lease, Tenant, Unit, Property } from "@/types";
+import { useDataRefresh, notifyDataChanged } from "@/lib/refresh";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -151,6 +152,7 @@ export function LandlordLeases() {
 
   // ── Fetch data on mount ──────────────────────────────────────────────────
 
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -173,9 +175,12 @@ export function LandlordLeases() {
     }
   }, []);
 
+  useDataRefresh(fetchData);
+
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
 
   // ── Filtered leases ──────────────────────────────────────────────────────
 
@@ -317,6 +322,7 @@ export function LandlordLeases() {
       setLeases((prev) =>
         prev.map((l) => (l.id === leaseId ? { ...l, status: updated.status } : l))
       );
+      notifyDataChanged();
     } catch (err) {
       console.error("Failed to sign lease:", err);
       setError("Failed to e-sign lease. Please try again.");
@@ -330,6 +336,7 @@ export function LandlordLeases() {
       await deleteLease(leaseId);
       setLeases((prev) => prev.filter((l) => l.id !== leaseId));
       setDeleteConfirm(null);
+      notifyDataChanged();
     } catch (err) {
       console.error("Failed to delete lease:", err);
       setError("Failed to delete lease. Please try again.");
