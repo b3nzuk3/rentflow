@@ -1,4 +1,4 @@
-import uuid
+import uuid as uuid_lib
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -107,7 +107,7 @@ async def create_payment(
 
     # Create the payment
     payment = Payment(
-        id=str(uuid.uuid4()),
+        id=str(uuid_lib.uuid4()),
         organization_id=current_user.organization_id,
         lease_id=data.lease_id,
         amount=data.amount,
@@ -142,7 +142,7 @@ async def create_payment(
         # Create new schedule entry
         due_date = f"{billing_period}-05"  # Rent due on 5th of each month
         schedule = RentSchedule(
-            id=str(uuid.uuid4()),
+            id=str(uuid_lib.uuid4()),
             organization_id=current_user.organization_id,
             lease_id=data.lease_id,
             billing_period=billing_period,
@@ -179,7 +179,7 @@ async def verify_payment(
 ):
     from app.db.models import RentSchedule
 
-    result = await db.execute(select(Payment).where(Payment.id == payment_id))
+    result = await db.execute(select(Payment).where(Payment.id == uuid_lib.UUID(payment_id)))
     payment = result.scalar_one_or_none()
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
@@ -260,7 +260,7 @@ async def get_rent_schedule(
     )
     return schedules.scalars().all()
 async def get_payment(payment_id: str, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
-    result = await db.execute(select(Payment).where(Payment.id == payment_id))
+    result = await db.execute(select(Payment).where(Payment.id == uuid_lib.UUID(payment_id)))
     payment = result.scalar_one_or_none()
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")

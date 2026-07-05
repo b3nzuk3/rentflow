@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
 from typing import Optional
 from datetime import datetime
 from app.db.models import UserRole
@@ -27,6 +27,11 @@ class UserResponse(BaseModel):
     role: UserRole
     is_active: bool
     created_at: datetime
+
+    @field_validator('id', 'organization_id', mode='before')
+    @classmethod
+    def _convert_uuid(cls, v):
+        return str(v) if v is not None else v
 
     class Config:
         from_attributes = True

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
 from typing import Optional
 
 
@@ -16,6 +16,11 @@ class LoginResponse(BaseModel):
     first_name: str
     last_name: str
     organization_id: str
+
+    @field_validator('user_id', 'organization_id', mode='before')
+    @classmethod
+    def convert_uuid_to_str(cls, v):
+        return str(v) if v is not None else v
 
 
 class SignupRequest(BaseModel):

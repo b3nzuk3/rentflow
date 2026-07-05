@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import Optional
+import uuid as uuid_lib
 
 from app.db.database import get_db
 from app.db.models import Block, UserRole
@@ -35,7 +36,7 @@ async def create_block(data: BlockCreate, db: AsyncSession = Depends(get_db),
 @router.delete("/{block_id}")
 async def delete_block(block_id: str, db: AsyncSession = Depends(get_db),
                        current_user=Depends(require_roles(UserRole.ORG_OWNER, UserRole.PROPERTY_MANAGER))):
-    result = await db.execute(select(Block).where(Block.id == block_id))
+    result = await db.execute(select(Block).where(Block.id == uuid_lib.UUID(block_id)))
     block = result.scalar_one_or_none()
     if not block:
         raise HTTPException(status_code=404, detail="Block not found")

@@ -7,9 +7,10 @@ async def test_health_check(client):
     response = await client.get("/api/health")
     assert response.status_code == 200
     data = response.json()
-    assert data["status"] == "ok"
+    assert data["status"] in ["ok", "degraded"]
     assert "app" in data
     assert "version" in data
+    assert "checks" in data
 
 
 @pytest.mark.asyncio
@@ -19,3 +20,12 @@ async def test_health_check_content(client):
     data = response.json()
     assert data["app"] == "RentFlow"
     assert data["version"] == "1.0.0"
+
+
+@pytest.mark.asyncio
+async def test_readiness_check(client):
+    """Test readiness probe."""
+    response = await client.get("/api/ready")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "ready"

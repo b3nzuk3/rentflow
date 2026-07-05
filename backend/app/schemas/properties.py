@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import Optional
 from datetime import datetime
 from app.db.models import PropertyStatus
@@ -31,6 +31,11 @@ class PropertyResponse(BaseModel):
     image_url: Optional[str]
     created_at: datetime
     updated_at: datetime
+
+    @field_validator('id', 'organization_id', mode='before')
+    @classmethod
+    def convert_uuid_to_str(cls, v):
+        return str(v) if v is not None else v
 
     class Config:
         from_attributes = True

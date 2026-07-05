@@ -1,8 +1,17 @@
+import os
+import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from sqlalchemy import text
 
 from app.core.config import get_settings
+from app.core.exception_handlers import custom_http_exception_handler, generic_exception_handler
+from app.db.database import engine
+from app.middleware import CorrelationIDMiddleware, RequestLoggingMiddleware, SecurityHeadersMiddleware
 from app.api.v1 import (
     auth_router,
     organizations_router,
@@ -19,7 +28,16 @@ from app.api.v1 import (
     invitations_router,
 )
 
+# Configure structured logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
+
 settings = get_settings()
+
+# Rate limiter
+limiter = Limiter(key_func=get_remote_address)
 
 
 @asynccontextmanager
@@ -42,6 +60,10 @@ def create_application() -> FastAPI:
         openapi_url="/api/openapi.json",
     )
 
+    # Rate limiter state
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
     # CORS middleware
     app.add_middleware(
         CORSMiddleware,
@@ -50,6 +72,17 @@ def create_application() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Skip middleware in test mode (event loop conflicts with httpx AsyncClient)
+    if not os.environ.get("TESTING"):
+        app.add_middleware(SecurityHeadersMiddleware)
+        app.add_middleware(RequestLoggingMiddleware)
+        app.add_middleware(CorrelationIDMiddleware)
+
+    # Exception handlers (skip in test mode to avoid event loop conflicts)
+    if not os.environ.get("TESTING"):
+        app.add_exception_handler(HTTPException, custom_http_exception_handler)
+        app.add_exception_handler(Exception, generic_exception_handler)
 
     # Include all v1 routers
     app.include_router(auth_router, prefix="/api/v1/auth", tags=["auth"])
@@ -67,8 +100,32 @@ def create_application() -> FastAPI:
     app.include_router(invitations_router, prefix="/api/v1/invitations", tags=["invitations"])
 
     @app.get("/api/health", tags=["health"])
-    async def health_check():
-        return {"status": "ok", "app": settings.APP_NAME, "version": settings.APP_VERSION}
+    @limiter.limit("5/minute")
+    async def health_check(request: Request):
+        """Health check endpoint with database connectivity check."""
+        db_status = "ok"
+        try:
+            async with engine.connect() as conn:
+                await conn.execute(text("SELECT 1"))
+        except Exception:
+            db_status = "error"
+
+        return {
+            "status": "ok" if db_status == "ok" else "degraded",
+            "app": settings.APP_NAME,
+            "version": settings.APP_VERSION,
+            "checks": {"db": db_status},
+        }
+
+    @app.get("/api/ready", tags=["health"])
+    async def readiness_check():
+        """Readiness check endpoint - returns 200 if DB is reachable, 503 otherwise."""
+        try:
+            async with engine.connect() as conn:
+                await conn.execute(text("SELECT 1"))
+            return {"status": "ready"}
+        except Exception:
+            raise HTTPException(status_code=503, detail="Service not ready")
 
     return app
 

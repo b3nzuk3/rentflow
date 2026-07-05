@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import Optional
 from datetime import datetime
 from app.db.models import SubscriptionPlan
@@ -40,6 +40,11 @@ class OrganizationResponse(OrganizationBase):
     logo_url: Optional[str] = None
     created_at: datetime
     updated_at: datetime
+
+    @field_validator('id', mode='before')
+    @classmethod
+    def convert_uuid_to_str(cls, v):
+        return str(v) if v is not None else v
 
     class Config:
         from_attributes = True

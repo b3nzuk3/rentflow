@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+import uuid as uuid_lib
 
 from app.db.database import get_db
 from app.db.models import Lease, Unit, UserRole, UnitStatus, LeaseStatus
@@ -18,6 +19,17 @@ async def list_leases(status: str = None, db: AsyncSession = Depends(get_db), cu
         query = query.where(Lease.status == status)
     result = await db.execute(query.order_by(Lease.created_at.desc()))
     return result.scalars().all()
+
+
+@router.get("/{lease_id}", response_model=LeaseResponse)
+async def get_lease(lease_id: str, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
+    result = await db.execute(
+        select(Lease).where(Lease.id == uuid_lib.UUID(lease_id), Lease.organization_id == current_user.organization_id)
+    )
+    lease = result.scalar_one_or_none()
+    if not lease:
+        raise HTTPException(status_code=404, detail="Lease not found")
+    return lease
 
 
 @router.post("/", response_model=LeaseResponse)
@@ -48,7 +60,7 @@ async def create_lease(data: LeaseCreate, db: AsyncSession = Depends(get_db),
 
 @router.patch("/{lease_id}/sign", response_model=LeaseResponse)
 async def sign_lease(lease_id: str, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
-    result = await db.execute(select(Lease).where(Lease.id == lease_id))
+    result = await db.execute(select(Lease).where(Lease.id == uuid_lib.UUID(lease_id)))
     lease = result.scalar_one_or_none()
     if not lease:
         raise HTTPException(status_code=404, detail="Lease not found")

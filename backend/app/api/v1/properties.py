@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 from typing import Optional
+import uuid as uuid_lib
 
 from app.db.database import get_db
 from app.db.models import Property, Organization, UserRole
@@ -53,7 +54,7 @@ async def get_property(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    result = await db.execute(select(Property).where(Property.id == property_id))
+    result = await db.execute(select(Property).where(Property.id == uuid_lib.UUID(property_id)))
     prop = result.scalar_one_or_none()
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
@@ -67,7 +68,7 @@ async def update_property(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(require_roles(UserRole.ORG_OWNER, UserRole.PROPERTY_MANAGER)),
 ):
-    result = await db.execute(select(Property).where(Property.id == property_id))
+    result = await db.execute(select(Property).where(Property.id == uuid_lib.UUID(property_id)))
     prop = result.scalar_one_or_none()
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
@@ -87,7 +88,7 @@ async def delete_property(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(require_roles(UserRole.ORG_OWNER, UserRole.PROPERTY_MANAGER)),
 ):
-    result = await db.execute(select(Property).where(Property.id == property_id))
+    result = await db.execute(select(Property).where(Property.id == uuid_lib.UUID(property_id)))
     prop = result.scalar_one_or_none()
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")

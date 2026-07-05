@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+import uuid as uuid_lib
 
 from app.db.database import get_db
 from app.db.models import Organization, UserRole
@@ -31,7 +32,7 @@ async def get_organization(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    result = await db.execute(select(Organization).where(Organization.id == org_id))
+    result = await db.execute(select(Organization).where(Organization.id == uuid_lib.UUID(org_id)))
     org = result.scalar_one_or_none()
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
@@ -43,9 +44,9 @@ async def update_organization(
     org_id: str,
     data: OrganizationUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(require_roles(UserRole.SUPER_ADMIN)),
+    current_user=Depends(require_roles(UserRole.SUPER_ADMIN, UserRole.ORG_OWNER)),
 ):
-    result = await db.execute(select(Organization).where(Organization.id == org_id))
+    result = await db.execute(select(Organization).where(Organization.id == uuid_lib.UUID(org_id)))
     org = result.scalar_one_or_none()
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")

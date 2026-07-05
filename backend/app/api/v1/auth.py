@@ -39,11 +39,11 @@ async def login(request: LoginRequest, db: AsyncSession = Depends(get_db)):
     return LoginResponse(
         access_token=access_token,
         refresh_token=refresh_token,
-        user_id=user.id,
+        user_id=str(user.id),
         role=user.role.value,
         first_name=user.first_name,
         last_name=user.last_name,
-        organization_id=user.organization_id,
+        organization_id=str(user.organization_id),
     )
 
 
@@ -79,11 +79,11 @@ async def signup(request: SignupRequest, db: AsyncSession = Depends(get_db)):
     return LoginResponse(
         access_token=access_token,
         refresh_token=refresh_token,
-        user_id=user.id,
+        user_id=str(user.id),
         role=user.role.value,
         first_name=user.first_name,
         last_name=user.last_name,
-        organization_id=user.organization_id,
+        organization_id=str(user.organization_id),
     )
 
 

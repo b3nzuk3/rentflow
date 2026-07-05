@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 from typing import Optional
+import uuid as uuid_lib
 
 from app.db.database import get_db
 from app.db.models import Unit, Property, Block, UserRole
@@ -61,7 +62,7 @@ async def get_unit(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    result = await db.execute(select(Unit).where(Unit.id == unit_id))
+    result = await db.execute(select(Unit).where(Unit.id == uuid_lib.UUID(unit_id)))
     unit = result.scalar_one_or_none()
     if not unit:
         raise HTTPException(status_code=404, detail="Unit not found")
@@ -75,7 +76,7 @@ async def update_unit(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(require_roles(UserRole.ORG_OWNER, UserRole.PROPERTY_MANAGER)),
 ):
-    result = await db.execute(select(Unit).where(Unit.id == unit_id))
+    result = await db.execute(select(Unit).where(Unit.id == uuid_lib.UUID(unit_id)))
     unit = result.scalar_one_or_none()
     if not unit:
         raise HTTPException(status_code=404, detail="Unit not found")
@@ -96,7 +97,7 @@ async def update_unit_status(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    result = await db.execute(select(Unit).where(Unit.id == unit_id))
+    result = await db.execute(select(Unit).where(Unit.id == uuid_lib.UUID(unit_id)))
     unit = result.scalar_one_or_none()
     if not unit:
         raise HTTPException(status_code=404, detail="Unit not found")
@@ -115,7 +116,7 @@ async def delete_unit(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(require_roles(UserRole.ORG_OWNER, UserRole.PROPERTY_MANAGER)),
 ):
-    result = await db.execute(select(Unit).where(Unit.id == unit_id))
+    result = await db.execute(select(Unit).where(Unit.id == uuid_lib.UUID(unit_id)))
     unit = result.scalar_one_or_none()
     if not unit:
         raise HTTPException(status_code=404, detail="Unit not found")

@@ -4,11 +4,7 @@ from app.core.config import get_settings
 
 settings = get_settings()
 
-# SQLite doesn't support async pool the same way PostgreSQL does
-if settings.DATABASE_URL.startswith("sqlite"):
-    engine = create_async_engine(settings.DATABASE_URL, echo=settings.DEBUG)
-else:
-    engine = create_async_engine(settings.DATABASE_URL, echo=settings.DEBUG, pool_pre_ping=True)
+engine = create_async_engine(settings.DATABASE_URL, echo=settings.DEBUG, pool_pre_ping=True)
 
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
