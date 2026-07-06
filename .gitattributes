@@ -1,0 +1,4 @@
+# Ensure shell scripts keep Unix line endings
+*.sh text eol=lf
+*.bash text eol=lf
+nginx/entrypoint.sh text eol=lf
