@@ -13,7 +13,7 @@ NC='\033[0m'
 echo "Checking SSL certificate renewal..."
 
 # Attempt renewal
-if docker compose -f "$COMPOSE_FILE" run --rm certbot renew --quiet; then
+if docker compose -f "$COMPOSE_FILE" --profile certbot run --rm certbot renew --quiet; then
     echo -e "${GREEN}Certificate renewal check complete.${NC}"
     
     # Reload nginx to pick up new certs

@@ -126,8 +126,6 @@ services:
     volumes:
       - ./nginx/certs:/etc/letsencrypt
       - ./nginx/www:/var/www/certbot
-    entrypoint: ""
-    command: ""
     profiles:
       - certbot
 

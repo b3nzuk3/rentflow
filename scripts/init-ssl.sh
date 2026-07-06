@@ -36,7 +36,7 @@ fi
 echo "Requesting SSL certificate..."
 
 # Temporarily create a minimal nginx config for HTTP-only (cert challenge)
-docker compose -f "$COMPOSE_FILE" run --rm certbot certonly \
+docker compose -f "$COMPOSE_FILE" --profile certbot run --rm certbot certonly \
     --webroot \
     --webroot-path=/var/www/certbot \
     -d "$DOMAIN" \
