@@ -1,5 +1,5 @@
 #!/bin/sh
 set -e
-# Substitute ${DOMAIN} in the nginx config template
-envsubst '${DOMAIN}' < /etc/nginx/templates/nginx.conf.template > /etc/nginx/nginx.conf
+# Use sed to substitute ${DOMAIN} in the nginx config
+sed -i "s/\${DOMAIN}/${DOMAIN}/g" /etc/nginx/nginx.conf
 exec nginx -g "daemon off;"
