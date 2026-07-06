@@ -22,4 +22,3 @@ EXPOSE 80 443
 
 # Use entrypoint script
 ENTRYPOINT ["/entrypoint.sh"]
-CMD ["nginx", "-g", "daemon off;"]
