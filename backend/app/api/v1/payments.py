@@ -5,9 +5,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.db.database import get_db
-from app.db.models import Payment, Lease, Tenant, UserRole, PaymentStatus, RentSchedule, PaymentType
-from app.core.security import get_current_user, require_roles
-from app.schemas.payments import PaymentCreate, PaymentVerify, PaymentResponse
+from app.db.models import Payment, Lease, Tenant, UserRole, PaymentStatus, RentSchedule, PaymentType, Unit
+from app.core.security import get_current_user, require_roles, get_user_property_filter
+from app.schemas.payments import PaymentCreate, PaymentVerify, PaymentResponse, RentRollItem
 from app.services.audit_service import log_action
 
 router = APIRouter(redirect_slashes=False)
@@ -22,6 +22,17 @@ async def list_payments(
     query = select(Payment).where(Payment.organization_id == current_user.organization_id)
     if status:
         query = query.where(Payment.status == status)
+    # Filter by assigned properties for non-owner roles (join through Lease -> Unit)
+    prop_ids = await get_user_property_filter(current_user, db)
+    if prop_ids is not None:
+        if not prop_ids:
+            return []
+        query = (
+            query
+            .join(Lease, Payment.lease_id == Lease.id)
+            .join(Unit, Lease.unit_id == Unit.id)
+            .where(Unit.property_id.in_(prop_ids))
+        )
     result = await db.execute(query.order_by(Payment.created_at.desc()))
     return result.scalars().all()
 
@@ -259,6 +270,87 @@ async def get_rent_schedule(
         select(RentSchedule).where(RentSchedule.lease_id == lease_id).order_by(RentSchedule.billing_period)
     )
     return schedules.scalars().all()
+
+
+@router.get("/rent-roll", response_model=list[RentRollItem])
+async def get_rent_roll(
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Rent roll — shows all active leases with their current billing period status."""
+    from app.db.models import Lease, Tenant, Unit, Property, RentSchedule, UserRole
+    from app.core.security import get_user_property_filter
+    from sqlalchemy.orm import selectinload
+    from datetime import datetime
+    
+    # Get current billing period (YYYY-MM)
+    current_period = datetime.now().strftime("%Y-%m")
+    
+    # Query active leases with rent schedule for current period
+    query = (
+        select(Lease)
+        .where(
+            Lease.organization_id == current_user.organization_id,
+            Lease.status == "Active",
+        )
+    )
+    
+    # Filter by assigned properties for non-owner roles
+    prop_ids = await get_user_property_filter(current_user, db)
+    if prop_ids is not None:
+        if not prop_ids:
+            return []
+        query = query.join(Unit, Lease.unit_id == Unit.id).where(Unit.property_id.in_(prop_ids))
+    
+    result = await db.execute(query)
+    leases = result.scalars().all()
+    
+    roll = []
+    for lease in leases:
+        # Get tenant
+        tenant_result = await db.execute(select(Tenant).where(Tenant.id == lease.tenant_id))
+        tenant = tenant_result.scalar_one_or_none()
+        
+        # Get unit + property
+        unit_result = await db.execute(select(Unit).where(Unit.id == lease.unit_id))
+        unit = unit_result.scalar_one_or_none()
+        property_name = ""
+        if unit:
+            prop_result = await db.execute(select(Property).where(Property.id == unit.property_id))
+            prop = prop_result.scalar_one_or_none()
+            property_name = prop.name if prop else ""
+        
+        # Get rent schedule for current period
+        schedule_result = await db.execute(
+            select(RentSchedule).where(
+                RentSchedule.lease_id == lease.id,
+                RentSchedule.billing_period == current_period,
+            )
+        )
+        schedule = schedule_result.scalar_one_or_none()
+        
+        roll.append({
+            "tenant_name": f"{tenant.first_name} {tenant.last_name}" if tenant else "Unknown",
+            "tenant_email": tenant.email if tenant else "",
+            "tenant_phone": tenant.phone_number if tenant else "",
+            "unit_code": unit.unit_code if unit else "—",
+            "property_name": property_name,
+            "monthly_rent": lease.monthly_rent,
+            "expected_amount": schedule.expected_amount if schedule else lease.monthly_rent,
+            "paid_amount": schedule.paid_amount if schedule else 0,
+            "balance": schedule.balance if schedule else lease.monthly_rent,
+            "status": schedule.status if schedule else "Pending",
+            "due_date": schedule.due_date if schedule else None,
+            "lease_id": str(lease.id),
+        })
+    
+    # Sort: Overdue first, then Pending, then Partial, then Paid
+    status_order = {"Overdue": 0, "Pending": 1, "Partial": 2, "Paid": 3, "Advance": 4}
+    roll.sort(key=lambda x: (status_order.get(x["status"], 99), x["tenant_name"]))
+    
+    return roll
+
+
 async def get_payment(payment_id: str, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
     result = await db.execute(select(Payment).where(Payment.id == uuid_lib.UUID(payment_id)))
     payment = result.scalar_one_or_none()

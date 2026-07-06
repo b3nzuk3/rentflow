@@ -7,7 +7,7 @@ import {
   AlertTriangle, CheckCircle, Info, Eye, EyeOff, Smartphone, MapPin, Laptop
 } from "lucide-react";
 import { api } from "@/lib/api";
-import type { Organization, User } from "@/types";
+import type { Organization, User, UserRole, Property } from "@/types";
 
 type SettingsTab = "org_profile" | "my_account" | "users_roles" | "security" | "notifications" | "payment_config" | "subscription_billing" | "audit_logs" | "data_export";
 
@@ -68,15 +68,31 @@ export function SaaSSettings() {
     tenants: true, units: true, properties: true, leases: true, payments: true, auditLogs: false,
   });
 
+  // Users & Roles
+  const [users, setUsers] = useState<User[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteForm, setInviteForm] = useState({
+    first_name: "",
+    last_name: "",
+    email: "",
+    phone_number: "",
+    role: "property_manager" as UserRole,
+  });
+  const [inviteSubmitting, setInviteSubmitting] = useState(false);
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [selectedPropertyIds, setSelectedPropertyIds] = useState<string[]>([]);
+
   useEffect(() => {
     loadData();
   }, []);
 
   const loadData = async () => {
     try {
-      const [orgRes, userRes] = await Promise.all([
+      const [orgRes, userRes, propsRes] = await Promise.all([
         api.get("/organizations/me").catch(() => null),
         api.get("/users/me").catch(() => null),
+        api.get("/properties/").catch(() => null),
       ]);
       if (orgRes) {
         const o = orgRes.data;
@@ -109,10 +125,27 @@ export function SaaSSettings() {
           setAccPhone(u.phone_number || "");
         }
       }
+      if (propsRes) {
+        setProperties(propsRes.data || []);
+      }
+      await loadUsers();
     } catch (err) {
       console.error("Failed to load settings data", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadUsers = async () => {
+    setUsersLoading(true);
+    try {
+      const res = await api.get("/users/");
+      setUsers(res.data || []);
+    } catch (err) {
+      console.error("Failed to load users", err);
+      showToast("Failed to load users", "error");
+    } finally {
+      setUsersLoading(false);
     }
   };
 
@@ -188,7 +221,7 @@ export function SaaSSettings() {
   const getUnitLimit = () => { if (currentPlan === "Starter") return 10; if (currentPlan === "Growth") return 50; return 1000; };
 
   return (
-    <div className="flex flex-col lg:flex-row gap-8 items-stretch relative min-h-[750px] animate-fade-in text-left">
+    <div className="flex flex-col lg:flex-row gap-10 items-stretch relative min-h-[750px] animate-fade-in text-left">
       {/* Toast */}
       {toast && (
         <div className={`fixed top-4 right-4 z-50 px-5 py-3.5 rounded-2xl shadow-2xl border text-xs font-bold flex items-center gap-2.5 animate-fade-in ${toast.type === "success" ? "bg-white border-primary/25 text-[#006c0c]" : toast.type === "error" ? "bg-rose-50 border-rose-150 text-rose-700" : "bg-zinc-900 border-zinc-800 text-white max-w-sm"}`}>
@@ -198,22 +231,22 @@ export function SaaSSettings() {
       )}
 
       {/* LEFT SIDEBAR */}
-      <div className="w-full lg:w-76 shrink-0 flex flex-col gap-6">
-        <div className="bg-white rounded-3xl border border-zinc-200/80 shadow-md p-5 space-y-4">
-          <div className="flex items-center gap-3 pb-3 border-b border-zinc-150">
-            <div className="w-10 h-10 rounded-2xl bg-zinc-900 flex items-center justify-center text-white"><Settings className="w-5 h-5" /></div>
+      <div className="w-full lg:w-80 shrink-0 flex flex-col gap-6">
+        <div className="bg-white rounded-3xl border border-zinc-200/80 shadow-md p-6 space-y-5">
+          <div className="flex items-center gap-3 pb-4 border-b border-zinc-150">
+            <div className="w-11 h-11 rounded-2xl bg-zinc-900 flex items-center justify-center text-white"><Settings className="w-5 h-5" /></div>
             <div>
-              <h3 className="font-extrabold text-sm text-on-surface">Private Settings</h3>
-              <p className="text-[10px] text-zinc-450 font-mono font-bold uppercase tracking-wider mt-0.5">Control Center</p>
+              <h3 className="font-extrabold text-sm text-on-surface">Settings</h3>
+              <p className="text-[10px] text-zinc-450 font-mono font-bold uppercase tracking-wider mt-1">Control Center</p>
             </div>
           </div>
-          <nav className="flex flex-col gap-1.5">
+          <nav className="flex flex-col gap-2">
             {tabs.map(tab => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.key;
               return (
                 <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-                  className={`relative w-full px-4 py-3 rounded-2xl flex items-center justify-between transition-all text-xs font-bold leading-none ${isActive ? "bg-primary text-white font-black scale-[1.01] shadow-md shadow-primary/10" : "text-zinc-650 hover:text-zinc-900 hover:bg-zinc-50 hover:ring-1 hover:ring-zinc-200"}`}>
+                  className={`relative w-full px-4 py-3.5 rounded-2xl flex items-center justify-between transition-all text-xs font-bold leading-none ${isActive ? "bg-primary text-white font-black scale-[1.01] shadow-md shadow-primary/10" : "text-zinc-650 hover:text-zinc-900 hover:bg-zinc-50 hover:ring-1 hover:ring-zinc-200"}`}>
                   <div className="flex items-center gap-3">
                     <Icon className={`w-4 h-4 ${isActive ? "text-white" : "text-zinc-400"}`} />
                     <span className="truncate">{tab.label}</span>
@@ -224,33 +257,18 @@ export function SaaSSettings() {
             })}
           </nav>
         </div>
-
-        {/* Security info card */}
-        <div className="bg-zinc-950 text-white rounded-3xl p-5 border border-zinc-800 shadow-md space-y-3 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-primary/10 rounded-full blur-2xl" />
-          <div className="flex items-center gap-1.5 text-primary text-[10px] uppercase font-bold font-mono tracking-wider">
-            <Lock className="w-3.5 h-3.5" /> High-Security Schema Frame
-          </div>
-          <p className="text-[11px] text-zinc-400 leading-relaxed font-semibold">
-            You are securely configuring organizational tenant <strong>{org?.id}</strong>.
-          </p>
-          <div className="flex items-center gap-2 pt-2 border-t border-zinc-900">
-            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-[9px] text-[#4CAF50] font-mono uppercase tracking-widest font-bold">100% PARTITION_SECURE</span>
-          </div>
-        </div>
       </div>
 
       {/* RIGHT CONTENT PANEL */}
       <div className="flex-1 bg-white rounded-3xl border border-zinc-200/80 shadow-md overflow-hidden flex flex-col justify-between">
         {/* Header breadcrumb */}
-        <div className="border-b border-zinc-150 px-6 sm:px-8 py-5 flex items-center justify-between flex-wrap gap-4">
+        <div className="border-b border-zinc-150 px-8 sm:px-10 py-6 flex items-center justify-between flex-wrap gap-4">
           <div>
             <div className="flex items-center gap-2 text-[10px] font-mono font-bold text-zinc-400 uppercase tracking-widest">
               <span>Settings Portal</span><span>/</span>
               <span className="text-primary">{activeTab.replace(/_/g, " ")}</span>
             </div>
-            <h2 className="text-xl font-black text-on-surface tracking-tight uppercase leading-normal mt-1">
+            <h2 className="text-2xl font-black text-on-surface tracking-tight uppercase leading-normal mt-2">
               {activeTab === "org_profile" && "Organization Profile"}
               {activeTab === "my_account" && "My Account Profile"}
               {activeTab === "users_roles" && "Users & Roles Operating Hub"}
@@ -262,102 +280,102 @@ export function SaaSSettings() {
               {activeTab === "data_export" && "Tenancy Data Portability"}
             </h2>
           </div>
-          <div className="flex items-center gap-2 bg-zinc-50 border border-zinc-200 px-3.5 py-1.5 rounded-xl text-xs font-bold leading-none shrink-0">
+          <div className="flex items-center gap-2 bg-zinc-50 border border-zinc-200 px-4 py-2 rounded-xl text-xs font-bold leading-none shrink-0">
             <span className="text-zinc-600">Current Role:</span>
-            <span className="px-2 py-0.5 rounded font-mono text-[10px] bg-primary/15 text-[#006c0c] uppercase font-black tracking-wide">Org Owner</span>
+            <span className="px-2.5 py-0.5 rounded font-mono text-[10px] bg-primary/15 text-[#006c0c] uppercase font-black tracking-wide">Org Owner</span>
           </div>
         </div>
 
         {/* CONTENT */}
-        <div className="p-6 sm:p-8 flex-1">
+        <div className="p-8 sm:p-10 flex-1">
 
           {/* 1. ORG PROFILE */}
           {activeTab === "org_profile" && (
-            <form onSubmit={handleSaveOrg} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div className="space-y-1.5">
+            <form onSubmit={handleSaveOrg} className="space-y-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-5">
+                  <div className="space-y-2">
                     <label className="block text-xs font-bold font-mono text-zinc-500 uppercase">Organization Legal Name</label>
-                    <input value={orgName} onChange={e => setOrgName(e.target.value)} className="w-full px-4 py-3 border border-zinc-250 rounded-xl text-xs font-bold focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all bg-zinc-50/50" required />
+                    <input value={orgName} onChange={e => setOrgName(e.target.value)} className="w-full px-4 py-3.5 border border-zinc-250 rounded-xl text-xs font-bold focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all bg-zinc-50/50" required />
                   </div>
-                  <div className="space-y-1.5">
+                  <div className="space-y-2">
                     <label className="block text-xs font-bold font-mono text-zinc-500 uppercase">Business Operational Type</label>
-                    <input value={businessType} onChange={e => setBusinessType(e.target.value)} className="w-full px-4 py-3 border border-zinc-250 rounded-xl text-xs font-bold focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all bg-zinc-50/50" />
+                    <input value={businessType} onChange={e => setBusinessType(e.target.value)} className="w-full px-4 py-3.5 border border-zinc-250 rounded-xl text-xs font-bold focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all bg-zinc-50/50" />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
+                  <div className="grid grid-cols-2 gap-5">
+                    <div className="space-y-2">
                       <label className="block text-xs font-bold font-mono text-zinc-500 uppercase">Phone Number</label>
-                      <input value={orgPhone} onChange={e => setOrgPhone(e.target.value)} className="w-full px-4 py-3 border border-zinc-250 rounded-xl text-xs font-bold focus:ring-2 focus:ring-primary/20" />
+                      <input value={orgPhone} onChange={e => setOrgPhone(e.target.value)} className="w-full px-4 py-3.5 border border-zinc-250 rounded-xl text-xs font-bold focus:ring-2 focus:ring-primary/20" />
                     </div>
-                    <div className="space-y-1.5">
+                    <div className="space-y-2">
                       <label className="block text-xs font-bold font-mono text-zinc-500 uppercase">Business Email</label>
-                      <input value={orgEmail} onChange={e => setOrgEmail(e.target.value)} className="w-full px-4 py-3 border border-zinc-250 rounded-xl text-xs font-bold focus:ring-2 focus:ring-primary/20" />
+                      <input value={orgEmail} onChange={e => setOrgEmail(e.target.value)} className="w-full px-4 py-3.5 border border-zinc-250 rounded-xl text-xs font-bold focus:ring-2 focus:ring-primary/20" />
                     </div>
                   </div>
-                  <div className="space-y-1.5">
+                  <div className="space-y-2">
                     <label className="block text-xs font-bold font-mono text-zinc-500 uppercase">Office Physical Address</label>
-                    <input value={orgAddress} onChange={e => setOrgAddress(e.target.value)} className="w-full px-4 py-3 border border-zinc-250 rounded-xl text-xs font-bold focus:ring-2 focus:ring-primary/20" />
+                    <input value={orgAddress} onChange={e => setOrgAddress(e.target.value)} className="w-full px-4 py-3.5 border border-zinc-250 rounded-xl text-xs font-bold focus:ring-2 focus:ring-primary/20" />
                   </div>
                 </div>
-                <div className="space-y-4">
-                  <div className="space-y-1.5">
+                <div className="space-y-5">
+                  <div className="space-y-2">
                     <label className="block text-xs font-bold font-mono text-zinc-500 uppercase">Website URL (Optional)</label>
-                    <input value={orgWebsite} onChange={e => setOrgWebsite(e.target.value)} className="w-full px-4 py-3 border border-zinc-250 rounded-xl text-xs font-bold focus:ring-2 focus:ring-primary/20" />
+                    <input value={orgWebsite} onChange={e => setOrgWebsite(e.target.value)} className="w-full px-4 py-3.5 border border-zinc-250 rounded-xl text-xs font-bold focus:ring-2 focus:ring-primary/20" />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
+                  <div className="grid grid-cols-2 gap-5">
+                    <div className="space-y-2">
                       <label className="block text-xs font-bold font-mono text-zinc-500 uppercase">KRA Tax PIN (Optional)</label>
-                      <input value={orgTaxPin} onChange={e => setOrgTaxPin(e.target.value)} className="w-full px-4 py-3 border border-zinc-250 rounded-xl text-xs font-bold focus:ring-2 focus:ring-primary/20" />
+                      <input value={orgTaxPin} onChange={e => setOrgTaxPin(e.target.value)} className="w-full px-4 py-3.5 border border-zinc-250 rounded-xl text-xs font-bold focus:ring-2 focus:ring-primary/20" />
                     </div>
-                    <div className="space-y-1.5">
+                    <div className="space-y-2">
                       <label className="block text-xs font-bold font-mono text-zinc-500 uppercase">Company Reg Number (Optional)</label>
-                      <input value={orgRegNumber} onChange={e => setOrgRegNumber(e.target.value)} className="w-full px-4 py-3 border border-zinc-250 rounded-xl text-xs font-bold focus:ring-2 focus:ring-primary/20" />
+                      <input value={orgRegNumber} onChange={e => setOrgRegNumber(e.target.value)} className="w-full px-4 py-3.5 border border-zinc-250 rounded-xl text-xs font-bold focus:ring-2 focus:ring-primary/20" />
                     </div>
                   </div>
                   {/* Logo upload */}
-                  <div className="space-y-1.5">
+                  <div className="space-y-2">
                     <label className="block text-xs font-bold font-mono text-zinc-500 uppercase">Corporate Logo Image</label>
-                    <div className="border-2 border-dashed border-zinc-250 bg-zinc-50 rounded-2xl p-4 flex flex-col items-center justify-center">
-                      <Building className="w-8 h-8 text-zinc-400 mb-2" />
-                      <p className="text-[10px] text-zinc-500 font-bold">Drag logo file here or select from disk</p>
-                      <label className="mt-2 inline-block px-3 py-1.5 bg-white border border-zinc-200 text-[10px] font-bold uppercase tracking-wider rounded-lg cursor-pointer hover:border-zinc-300">
+                    <div className="border-2 border-dashed border-zinc-250 bg-zinc-50 rounded-2xl p-6 flex flex-col items-center justify-center">
+                      <Building className="w-10 h-10 text-zinc-400 mb-3" />
+                      <p className="text-xs text-zinc-500 font-bold">Drag logo file here or select from disk</p>
+                      <label className="mt-3 inline-block px-4 py-2 bg-white border border-zinc-200 text-[10px] font-bold uppercase tracking-wider rounded-lg cursor-pointer hover:border-zinc-300">
                         Choose Logo Image <input type="file" accept="image/*" className="hidden" />
                       </label>
                     </div>
                   </div>
                 </div>
               </div>
-              <div className="border-t border-zinc-150 pt-5 flex justify-end gap-3">
-                <button type="button" onClick={() => { setOrgName(org?.name || ""); showToast("Form values reset.", "info"); }} className="px-5 py-2.5 rounded-xl border border-zinc-200 text-xs font-extrabold uppercase font-mono tracking-wider">Reset Changes</button>
-                <button type="submit" disabled={saving} className="px-5 py-2.5 rounded-xl bg-[#006c0c] text-white hover:bg-neutral-800 text-xs font-extrabold uppercase font-mono tracking-wider transition-all shadow-md disabled:opacity-50">Save Changes</button>
+              <div className="border-t border-zinc-150 pt-6 flex justify-end gap-3">
+                <button type="button" onClick={() => { setOrgName(org?.name || ""); showToast("Form values reset.", "info"); }} className="px-6 py-3 rounded-xl border border-zinc-200 text-xs font-extrabold uppercase font-mono tracking-wider">Reset Changes</button>
+                <button type="submit" disabled={saving} className="px-6 py-3 rounded-xl bg-[#006c0c] text-white hover:bg-neutral-800 text-xs font-extrabold uppercase font-mono tracking-wider transition-all shadow-md disabled:opacity-50">Save Changes</button>
               </div>
             </form>
           )}
 
           {/* 2. MY ACCOUNT */}
           {activeTab === "my_account" && (
-            <div className="space-y-6">
-              <div className="flat-card border p-6 rounded-2xl bg-zinc-50/50 flex flex-col md:flex-row gap-6 items-start md:items-center">
-                <div className="w-20 h-20 bg-zinc-900 rounded-3xl shrink-0 flex items-center justify-center text-white border border-zinc-800 text-2xl font-black">FA</div>
-                <div className="space-y-1.5 flex-1 select-text">
-                  <div className="flex gap-2 items-center flex-wrap">
-                    <h3 className="text-lg font-black text-on-surface">{accFirstName} {accLastName}</h3>
-                    <span className="px-2 py-0.5 rounded bg-primary/10 text-primary font-mono text-[9px] uppercase font-bold tracking-wide">Org Owner</span>
+            <div className="space-y-8">
+              <div className="flat-card border p-7 rounded-2xl bg-zinc-50/50 flex flex-col md:flex-row gap-7 items-start md:items-center">
+                <div className="w-24 h-24 bg-zinc-900 rounded-3xl shrink-0 flex items-center justify-center text-white border border-zinc-800 text-3xl font-black">FA</div>
+                <div className="space-y-2 flex-1 select-text">
+                  <div className="flex gap-2.5 items-center flex-wrap">
+                    <h3 className="text-xl font-black text-on-surface">{accFirstName} {accLastName}</h3>
+                    <span className="px-2.5 py-1 rounded-lg bg-primary/10 text-primary font-mono text-[9px] uppercase font-bold tracking-wide">Org Owner</span>
                   </div>
-                  <p className="text-xs text-zinc-500 flex items-center gap-1.5 font-bold"><Mail className="w-4 h-4 text-zinc-400" /> {accEmail}</p>
-                  <p className="text-xs text-zinc-500 flex items-center gap-1.5 font-bold"><Phone className="w-4 h-4 text-zinc-400" /> {accPhone}</p>
+                  <p className="text-sm text-zinc-500 flex items-center gap-2 font-bold"><Mail className="w-4 h-4 text-zinc-400" /> {accEmail}</p>
+                  <p className="text-sm text-zinc-500 flex items-center gap-2 font-bold"><Phone className="w-4 h-4 text-zinc-400" /> {accPhone}</p>
                 </div>
-                <button onClick={() => setIsEditingAccount(!isEditingAccount)} className="px-4 py-2 border border-zinc-200 rounded-xl text-xs font-bold">{isEditingAccount ? "Cancel" : "Edit Profile"}</button>
+                <button onClick={() => setIsEditingAccount(!isEditingAccount)} className="px-5 py-2.5 border border-zinc-200 rounded-xl text-xs font-bold">{isEditingAccount ? "Cancel" : "Edit Profile"}</button>
               </div>
               {isEditingAccount && (
-                <form onSubmit={handleSaveAccount} className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-1"><label className="block text-xs font-extrabold font-mono text-zinc-500 uppercase">First Name</label><input value={accFirstName} onChange={e => setAccFirstName(e.target.value)} className="w-full px-4 py-3 border border-zinc-250 rounded-xl text-xs font-bold focus:ring-2 focus:ring-primary/20" /></div>
-                    <div className="space-y-1"><label className="block text-xs font-extrabold font-mono text-zinc-500 uppercase">Last Name</label><input value={accLastName} onChange={e => setAccLastName(e.target.value)} className="w-full px-4 py-3 border border-zinc-250 rounded-xl text-xs font-bold focus:ring-2 focus:ring-primary/20" /></div>
+                <form onSubmit={handleSaveAccount} className="space-y-5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div className="space-y-2"><label className="block text-xs font-extrabold font-mono text-zinc-500 uppercase">First Name</label><input value={accFirstName} onChange={e => setAccFirstName(e.target.value)} className="w-full px-4 py-3.5 border border-zinc-250 rounded-xl text-xs font-bold focus:ring-2 focus:ring-primary/20" /></div>
+                    <div className="space-y-2"><label className="block text-xs font-extrabold font-mono text-zinc-500 uppercase">Last Name</label><input value={accLastName} onChange={e => setAccLastName(e.target.value)} className="w-full px-4 py-3.5 border border-zinc-250 rounded-xl text-xs font-bold focus:ring-2 focus:ring-primary/20" /></div>
                   </div>
-                  <div className="space-y-1"><label className="block text-xs font-extrabold font-mono text-zinc-500 uppercase">Email</label><input value={accEmail} onChange={e => setAccEmail(e.target.value)} className="w-full px-4 py-3 border border-zinc-250 rounded-xl text-xs font-bold focus:ring-2 focus:ring-primary/20" /></div>
-                  <div className="space-y-1"><label className="block text-xs font-extrabold font-mono text-zinc-500 uppercase">Phone</label><input value={accPhone} onChange={e => setAccPhone(e.target.value)} className="w-full px-4 py-3 border border-zinc-250 rounded-xl text-xs font-bold focus:ring-2 focus:ring-primary/20" /></div>
-                  <button type="submit" className="px-6 py-2.5 bg-primary text-white rounded-xl font-bold text-xs">Save Changes</button>
+                  <div className="space-y-2"><label className="block text-xs font-extrabold font-mono text-zinc-500 uppercase">Email</label><input value={accEmail} onChange={e => setAccEmail(e.target.value)} className="w-full px-4 py-3.5 border border-zinc-250 rounded-xl text-xs font-bold focus:ring-2 focus:ring-primary/20" /></div>
+                  <div className="space-y-2"><label className="block text-xs font-extrabold font-mono text-zinc-500 uppercase">Phone</label><input value={accPhone} onChange={e => setAccPhone(e.target.value)} className="w-full px-4 py-3.5 border border-zinc-250 rounded-xl text-xs font-bold focus:ring-2 focus:ring-primary/20" /></div>
+                  <button type="submit" className="px-7 py-3 bg-primary text-white rounded-xl font-bold text-xs">Save Changes</button>
                 </form>
               )}
             </div>
@@ -365,78 +383,177 @@ export function SaaSSettings() {
 
           {/* 3. USERS & ROLES */}
           {activeTab === "users_roles" && (
-            <div className="space-y-6">
+            <div className="space-y-8">
               {/* Header */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-zinc-150">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-zinc-150">
                 <div>
-                  <h3 className="text-sm font-extrabold text-on-surface">Registered Organization Users</h3>
-                  <p className="text-[10px] text-zinc-400 font-mono font-bold uppercase tracking-wider mt-0.5">Isolated Security Partitions</p>
+                  <h3 className="text-base font-extrabold text-on-surface">Registered Organization Users</h3>
+                  <p className="text-xs text-zinc-400 font-mono font-bold uppercase tracking-wider mt-1">Isolated Security Partitions</p>
                 </div>
                 <div className="flex gap-2">
                   <button className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-extrabold font-mono text-[10px] uppercase tracking-wider rounded-xl border border-rose-150 shrink-0">Transfer Ownership</button>
-                  <button className="px-4 py-2 bg-primary hover:bg-shadow text-white rounded-xl font-extrabold font-mono text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-sm"><Plus className="w-4 h-4 stroke-[3px]" /> Invite User</button>
+                  <button onClick={() => setShowInviteModal(true)} className="px-4 py-2 bg-primary hover:bg-shadow text-white rounded-xl font-extrabold font-mono text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-sm"><Plus className="w-4 h-4 stroke-[3px]" /> Invite User</button>
                 </div>
               </div>
 
               {/* Users Table */}
-              <div className="overflow-x-auto rounded-xl border border-zinc-150">
-                <table className="w-full text-left border-collapse">
-                  <thead className="bg-zinc-50 border-b border-zinc-150">
-                    <tr>
-                      <th className="px-4 py-3 text-[10px] font-bold font-mono text-zinc-550 uppercase tracking-wider">User Operating Name</th>
-                      <th className="px-4 py-3 text-[10px] font-bold font-mono text-zinc-550 uppercase tracking-wider">Core RBAC Role</th>
-                      <th className="px-4 py-3 text-[10px] font-bold font-mono text-zinc-550 uppercase tracking-wider">Status</th>
-                      <th className="px-4 py-3 text-[10px] font-bold font-mono text-zinc-550 uppercase tracking-wider">Last Sync</th>
-                      <th className="px-4 py-3 text-[10px] font-bold font-mono text-zinc-550 uppercase tracking-wider">Properties</th>
-                      <th className="px-4 py-3 text-[10px] font-bold font-mono text-zinc-550 uppercase tracking-wider text-right">Controls</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-150 select-text">
-                    {[
-                      { name: "Fatuma Ali", email: "fatuma.ali@amani.com", role: "org_owner", active: true, lastSync: "Nairobi • Online", props: "Global Clearance Tier", owner: true },
-                      { name: "Mwangi Karanja", email: "mwangi.k@amani.com", role: "property_manager", active: true, lastSync: "10 days ago", props: "Global Clearance Tier", owner: false },
-                      { name: "Grace Kendi", email: "grace.kendi@amani.com", role: "accountant", active: true, lastSync: "3 days ago", props: "Global Clearance Tier", owner: false },
-                      { name: "Josphat Njoroge", email: "j.njoroge@amani.com", role: "caretaker", active: true, lastSync: "5 days ago", props: "Global Clearance Tier", owner: false },
-                      { name: "Jane Doe", email: "jane.doe@gmail.com", role: "tenant", active: true, lastSync: "1 day ago", props: "Unit B12", owner: false },
-                    ].map((user, i) => (
-                      <tr key={i} className="hover:bg-slate-50/40">
-                        <td className="px-4 py-3.5">
-                          <p className="font-extrabold text-xs text-on-surface leading-normal">{user.name}</p>
-                          <p className="text-[10px] text-zinc-450 font-mono mt-0.5">{user.email}</p>
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <span className="inline-block px-2 py-0.5 rounded font-mono text-[9px] uppercase tracking-wide bg-neutral-100 text-zinc-800 font-bold">{user.role.replace("_", " ")}</span>
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold leading-none ${user.active ? "bg-emerald-50 text-[#006c0c]" : "bg-red-50 text-red-700"}`}>
-                            <span className={`w-1 h-1 rounded-full ${user.active ? "bg-emerald-500" : "bg-red-500"}`} />
-                            {user.active ? "Active" : "Suspended"}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3.5 text-xs text-zinc-500 font-mono font-bold uppercase">{user.lastSync}</td>
-                        <td className="px-4 py-3.5 text-xs text-zinc-700 font-semibold truncate max-w-40">{user.props}</td>
-                        <td className="px-4 py-3.5 text-right font-mono text-[10px]">
-                          {user.owner ? (
-                            <span className="text-zinc-400 italic">No suspended override</span>
-                          ) : (
-                            <div className="flex items-center justify-end gap-2">
-                              <button className="hover:underline font-bold hover:text-red-600 text-zinc-650">{user.active ? "Suspend" : "Activate"}</button>
-                            </div>
-                          )}
-                        </td>
+              {usersLoading ? (
+                <div className="flex items-center justify-center py-20">
+                  <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+                </div>
+              ) : users.length === 0 ? (
+                <div className="bg-slate-50 rounded-xl p-8 text-center">
+                  <Users className="w-10 h-10 text-zinc-300 mx-auto mb-2" />
+                  <p className="text-xs font-bold text-on-surface-variant">No users found</p>
+                  <p className="text-[10px] text-zinc-450 font-mono mt-1">Click "Invite User" to add team members</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-xl border border-zinc-150">
+                  <table className="w-full text-left border-collapse">
+                    <thead className="bg-zinc-50 border-b border-zinc-150">
+                      <tr>
+                        <th className="px-4 py-3 text-[10px] font-bold font-mono text-zinc-550 uppercase tracking-wider">User Operating Name</th>
+                        <th className="px-4 py-3 text-[10px] font-bold font-mono text-zinc-550 uppercase tracking-wider">Core RBAC Role</th>
+                        <th className="px-4 py-3 text-[10px] font-bold font-mono text-zinc-550 uppercase tracking-wider">Properties</th>
+                        <th className="px-4 py-3 text-[10px] font-bold font-mono text-zinc-550 uppercase tracking-wider text-right">Controls</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-150 select-text">
+                      {users.filter(u => u.role !== "tenant" && u.role !== "super_admin").map((user) => (
+                        <tr key={user.id} className="hover:bg-slate-50/40">
+                          <td className="px-4 py-3.5">
+                            <p className="font-extrabold text-xs text-on-surface leading-normal">{user.first_name} {user.last_name}</p>
+                            <p className="text-[10px] text-zinc-450 font-mono mt-0.5">{user.email}</p>
+                          </td>
+                          <td className="px-4 py-3.5">
+                            <span className="inline-block px-2 py-0.5 rounded font-mono text-[9px] uppercase tracking-wide bg-neutral-100 text-zinc-800 font-bold">{user.role.replace("_", " ")}</span>
+                          </td>
+                          <td className="px-4 py-3.5 text-xs text-zinc-700 font-semibold truncate max-w-40">
+                            {user.role === "org_owner" ? "All Properties" : 
+                             user.assigned_property_ids?.length ? 
+                               user.assigned_property_ids.map(id => properties.find(p => p.id === id)?.name || id).join(", ") :
+                               "No properties assigned"}
+                          </td>
+                          <td className="px-4 py-3.5 text-right font-mono text-[10px]">
+                            {user.role === "org_owner" ? (
+                              <span className="text-zinc-400 italic">No suspended override</span>
+                            ) : (
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      await api.patch(`/users/${user.id}/toggle`);
+                                      showToast(user.is_active ? "User suspended" : "User activated");
+                                      loadUsers();
+                                    } catch {
+                                      showToast("Failed to update user status", "error");
+                                    }
+                                  }}
+                                  className={`hover:underline font-bold ${user.is_active ? "hover:text-red-600 text-zinc-650" : "hover:text-emerald-600 text-zinc-650"}`}
+                                >
+                                  {user.is_active ? "Suspend" : "Activate"}
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Invite User Modal */}
+              {showInviteModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
+                  <div className="bg-white rounded-3xl border border-zinc-200/80 shadow-2xl w-full max-w-md animate-slide-up">
+                    <div className="flex items-center justify-between p-5 border-b border-zinc-150">
+                      <h3 className="text-lg font-black text-on-surface">Invite New User</h3>
+                      <button onClick={() => { setShowInviteModal(false); setInviteForm({ first_name: "", last_name: "", email: "", phone_number: "", role: "property_manager" }); setSelectedPropertyIds([]); }} className="w-8 h-8 rounded-xl hover:bg-zinc-100 flex items-center justify-center text-zinc-400 hover:text-zinc-600 transition-colors"><X className="w-4 h-4" /></button>
+                    </div>
+                    <form onSubmit={async (e) => {
+                      e.preventDefault();
+                      setInviteSubmitting(true);
+                      try {
+                        await api.post("/users/invite", { ...inviteForm, property_ids: selectedPropertyIds });
+                        showToast("User invited successfully!");
+                        setShowInviteModal(false);
+                        setInviteForm({ first_name: "", last_name: "", email: "", phone_number: "", role: "property_manager" });
+                        setSelectedPropertyIds([]);
+                        loadUsers();
+                      } catch (err: any) {
+                        showToast(err.response?.data?.detail || "Failed to invite user", "error");
+                      } finally {
+                        setInviteSubmitting(false);
+                      }
+                    }} className="p-5 space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="block text-xs font-extrabold font-mono text-zinc-500 uppercase">First Name</label>
+                          <input value={inviteForm.first_name} onChange={e => setInviteForm({ ...inviteForm, first_name: e.target.value })} className="w-full px-4 py-3 border border-zinc-250 rounded-xl text-xs font-bold focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all bg-zinc-50/50" required />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="block text-xs font-extrabold font-mono text-zinc-500 uppercase">Last Name</label>
+                          <input value={inviteForm.last_name} onChange={e => setInviteForm({ ...inviteForm, last_name: e.target.value })} className="w-full px-4 py-3 border border-zinc-250 rounded-xl text-xs font-bold focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all bg-zinc-50/50" required />
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="block text-xs font-extrabold font-mono text-zinc-500 uppercase">Email</label>
+                        <input type="email" value={inviteForm.email} onChange={e => setInviteForm({ ...inviteForm, email: e.target.value })} className="w-full px-4 py-3 border border-zinc-250 rounded-xl text-xs font-bold focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all bg-zinc-50/50" required />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="block text-xs font-extrabold font-mono text-zinc-500 uppercase">Phone Number</label>
+                        <input type="tel" value={inviteForm.phone_number} onChange={e => setInviteForm({ ...inviteForm, phone_number: e.target.value })} className="w-full px-4 py-3 border border-zinc-250 rounded-xl text-xs font-bold focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all bg-zinc-50/50" required />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="block text-xs font-extrabold font-mono text-zinc-500 uppercase">Role</label>
+                        <select value={inviteForm.role} onChange={e => setInviteForm({ ...inviteForm, role: e.target.value as UserRole })} className="w-full px-4 py-3 border border-zinc-250 rounded-xl text-xs font-bold focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all bg-zinc-50/50">
+                          <option value="property_manager">Property Manager</option>
+                          <option value="accountant">Accountant</option>
+                          <option value="caretaker">Caretaker</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="block text-xs font-extrabold font-mono text-zinc-500 uppercase">Assigned Properties</label>
+                        <div className="border border-zinc-250 rounded-xl p-3 max-h-40 overflow-y-auto space-y-2">
+                          {properties.map(prop => (
+                            <label key={prop.id} className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={selectedPropertyIds.includes(prop.id)}
+                                onChange={e => {
+                                  if (e.target.checked) {
+                                    setSelectedPropertyIds([...selectedPropertyIds, prop.id]);
+                                  } else {
+                                    setSelectedPropertyIds(selectedPropertyIds.filter(id => id !== prop.id));
+                                  }
+                                }}
+                                className="rounded"
+                              />
+                              <span className="text-xs font-bold">{prop.name}</span>
+                              <span className="text-[10px] text-zinc-400 font-mono">{prop.location}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex justify-end gap-3 pt-2 border-t border-zinc-150">
+                        <button type="button" onClick={() => { setShowInviteModal(false); setInviteForm({ first_name: "", last_name: "", email: "", phone_number: "", role: "property_manager" }); setSelectedPropertyIds([]); }} className="px-5 py-2.5 rounded-xl border border-zinc-200 text-xs font-extrabold uppercase font-mono tracking-wider hover:bg-zinc-50">Cancel</button>
+                        <button type="submit" disabled={inviteSubmitting} className="px-5 py-2.5 rounded-xl bg-[#006c0c] text-white hover:bg-neutral-800 text-xs font-extrabold uppercase font-mono tracking-wider transition-all shadow-md disabled:opacity-50 flex items-center gap-2">
+                          {inviteSubmitting ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : null} Send Invite
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
           {/* 4. SECURITY */}
           {activeTab === "security" && (
-            <div className="space-y-6">
-              <h3 className="text-sm font-extrabold text-on-surface">Change Password</h3>
-              <div className="space-y-4 max-w-md">
+            <div className="space-y-8">
+              <h3 className="text-base font-extrabold text-on-surface">Change Password</h3>
+              <div className="space-y-5 max-w-md">
                 <div className="space-y-1.5"><label className="block text-xs font-extrabold font-mono text-zinc-500 uppercase">Current Password</label><div className="relative"><Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" /><input type="password" placeholder="••••••••" className="w-full pl-9 pr-4 py-3 border border-zinc-250 rounded-xl text-xs font-bold focus:ring-2 focus:ring-primary/20" /></div></div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5"><label className="block text-xs font-extrabold font-mono text-zinc-500 uppercase">New Password</label><input type="password" placeholder="••••••••" className="w-full px-4 py-3 border border-zinc-250 rounded-xl text-xs font-bold focus:ring-2 focus:ring-primary/20" /></div>
@@ -449,9 +566,9 @@ export function SaaSSettings() {
 
           {/* 5. NOTIFICATIONS */}
           {activeTab === "notifications" && (
-            <div className="space-y-6">
-              <h3 className="text-sm font-extrabold text-on-surface">Notification Preferences</h3>
-              <div className="space-y-3">
+            <div className="space-y-8">
+              <h3 className="text-base font-extrabold text-on-surface">Notification Preferences</h3>
+              <div className="space-y-4">
                 {[
                   { key: "rentDueReminders", label: "Rent Due Reminders" },
                   { key: "overdueRentAlerts", label: "Overdue Rent Alerts" },
@@ -463,7 +580,7 @@ export function SaaSSettings() {
                   { key: "emailNotifications", label: "Email Notifications" },
                   { key: "inAppNotifications", label: "In-App Notifications" },
                 ].map(item => (
-                  <label key={item.key} className="flex items-center justify-between p-3 rounded-xl border border-outline-variant hover:border-primary/20 cursor-pointer">
+                  <label key={item.key} className="flex items-center justify-between p-4 rounded-xl border border-outline-variant hover:border-primary/20 cursor-pointer">
                     <span className="text-sm font-bold text-on-surface">{item.label}</span>
                     <button onClick={() => setNotifPrefs(p => ({ ...p, [item.key]: !p[item.key as keyof typeof notifPrefs] }))} className={`w-10 h-6 rounded-full transition-colors relative ${notifPrefs[item.key as keyof typeof notifPrefs] ? "bg-primary" : "bg-zinc-300"}`}>
                       <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${notifPrefs[item.key as keyof typeof notifPrefs] ? "left-5" : "left-1"}`} />
@@ -477,9 +594,9 @@ export function SaaSSettings() {
 
           {/* 6. PAYMENT CONFIG */}
           {activeTab === "payment_config" && (
-            <form onSubmit={handleSavePaymentConfig} className="space-y-6">
-              <h3 className="text-sm font-extrabold text-on-surface">Payment Configuration</h3>
-              <div className="space-y-4">
+            <form onSubmit={handleSavePaymentConfig} className="space-y-8">
+              <h3 className="text-base font-extrabold text-on-surface">Payment Configuration</h3>
+              <div className="space-y-5">
                 <div className="p-4 bg-primary/5 rounded-xl border border-primary/10">
                   <p className="text-[10px] font-bold font-mono text-primary uppercase mb-2">M-Pesa Paybill</p>
                   <input value={payPaybill} onChange={e => setPayPaybill(e.target.value)} className="w-full px-3.5 py-2.5 border border-zinc-250 rounded-xl text-sm font-mono font-bold focus:ring-2 focus:ring-primary/20 focus:border-primary" />
@@ -505,7 +622,7 @@ export function SaaSSettings() {
 
           {/* 7. SUBSCRIPTION */}
           {activeTab === "subscription_billing" && (
-            <div className="space-y-6">
+            <div className="space-y-8">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 <div className="border p-5 rounded-2xl bg-zinc-50/40">
                   <span className="block text-[10px] font-bold font-mono text-zinc-400 uppercase">Subscription Status</span>
@@ -590,7 +707,7 @@ export function SaaSSettings() {
 
           {/* 8. AUDIT LOGS */}
           {activeTab === "audit_logs" && (
-            <div className="space-y-6">
+            <div className="space-y-8">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pb-1">
                 <div className="md:col-span-2 relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 w-4 h-4" />
@@ -605,9 +722,9 @@ export function SaaSSettings() {
 
           {/* 9. DATA EXPORT */}
           {activeTab === "data_export" && (
-            <div className="space-y-6">
-              <h3 className="text-sm font-extrabold text-on-surface">Data Export</h3>
-              <div className="space-y-4">
+            <div className="space-y-8">
+              <h3 className="text-base font-extrabold text-on-surface">Data Export</h3>
+              <div className="space-y-5">
                 <p className="text-xs text-on-surface-variant">Select entities to export:</p>
                 <div className="grid grid-cols-2 gap-3">
                   {[

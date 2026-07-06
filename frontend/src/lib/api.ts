@@ -1,5 +1,5 @@
 import axios from "axios";
-import { LoginResponse, Property, Unit, Tenant, Lease, Payment } from "@/types";
+import { LoginResponse, Property, Unit, Tenant, Lease, Payment, RentRollItem } from "@/types";
 
 const API_BASE = 'http://localhost:8000/api/v1';
 
@@ -187,6 +187,11 @@ export async function getMyLeases() {
 
 export async function getRentSchedule(leaseId: string) {
   const { data } = await api.get(`/payments/schedule/${leaseId}`);
+  return data;
+}
+
+export async function getRentRoll(): Promise<RentRollItem[]> {
+  const { data } = await api.get("/payments/rent-roll");
   return data;
 }
 

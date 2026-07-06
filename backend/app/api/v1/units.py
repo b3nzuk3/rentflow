@@ -6,7 +6,7 @@ import uuid as uuid_lib
 
 from app.db.database import get_db
 from app.db.models import Unit, Property, Block, UserRole
-from app.core.security import get_current_user, require_roles
+from app.core.security import get_current_user, require_roles, get_user_property_filter
 from app.schemas.units import UnitCreate, UnitUpdate, UnitStatusUpdate, UnitResponse
 from app.services.audit_service import log_action
 
@@ -30,6 +30,12 @@ async def list_units(
         query = query.where(Unit.block_id == block_id)
     if status:
         query = query.where(Unit.status == status)
+    # Filter by assigned properties for non-owner roles
+    prop_ids = await get_user_property_filter(current_user, db)
+    if prop_ids is not None:
+        if not prop_ids:
+            return []
+        query = query.where(Unit.property_id.in_(prop_ids))
     result = await db.execute(query.order_by(Unit.unit_code))
     return result.scalars().all()
 

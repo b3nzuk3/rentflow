@@ -24,7 +24,6 @@ const landlordNavItems: { key: LandlordTab; label: string; icon: React.ElementTy
   { key: "leases", label: "Leases", icon: FileText },
   { key: "payments", label: "Payments", icon: CreditCard },
   { key: "reports", label: "Reports", icon: BarChart3 },
-  { key: "settings", label: "Settings", icon: Settings },
 ];
 
 const logItems: { key: LandlordTab; label: string; icon: React.ElementType }[] = [
@@ -55,6 +54,30 @@ export function Sidebar({
   isLandlord, onLogout, organizationName, pendingCount,
 }: SidebarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Filter navigation items based on current role
+  const filteredLandlordNavItems = landlordNavItems.filter(item => {
+    if (currentRole === "caretaker") {
+      // Caretaker: dashboard, properties, payments only
+      return ["dashboard", "properties", "payments"].includes(item.key);
+    }
+    if (currentRole === "accountant") {
+      // Accountant: dashboard, leases, payments, reports
+      return ["dashboard", "leases", "payments", "reports"].includes(item.key);
+    }
+    if (currentRole === "property_manager") {
+      // Property manager: dashboard, properties, leases, payments, reports
+      return ["dashboard", "properties", "leases", "payments", "reports"].includes(item.key);
+    }
+    // org_owner: all items
+    return true;
+  });
+
+  const filteredLogItems = logItems.filter(item => {
+    if (currentRole === "org_owner") return true;
+    // Non-owners: only notifications, no audit logs
+    return item.key === "notifications";
+  });
 
   const handleTabChange = (tab: LandlordTab) => {
     onTabChange(tab);
@@ -119,7 +142,7 @@ export function Sidebar({
           {isLandlord && (
             <>
               <p className="px-3 pt-2 pb-1.5 text-[9px] font-bold font-mono text-zinc-500 uppercase tracking-widest">Main</p>
-              {landlordNavItems.map((item) => {
+              {filteredLandlordNavItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = activeTab === item.key;
                 return (
@@ -143,8 +166,22 @@ export function Sidebar({
                 );
               })}
 
+              {currentRole === "org_owner" && (
+                <button
+                  onClick={() => handleTabChange("settings")}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${
+                    activeTab === "settings"
+                      ? "bg-primary text-white shadow-md shadow-primary/20"
+                      : "text-zinc-400 hover:text-white hover:bg-zinc-800/60"
+                  }`}
+                >
+                  <Settings className="w-4.5 h-4.5 shrink-0" />
+                  <span>Settings</span>
+                </button>
+              )}
+
               <p className="px-3 pt-4 pb-1.5 text-[9px] font-bold font-mono text-zinc-500 uppercase tracking-widest">Utilities</p>
-              {logItems.map((item) => {
+              {filteredLogItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = activeTab === item.key;
                 return (

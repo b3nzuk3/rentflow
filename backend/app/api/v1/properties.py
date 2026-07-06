@@ -6,7 +6,7 @@ import uuid as uuid_lib
 
 from app.db.database import get_db
 from app.db.models import Property, Organization, UserRole
-from app.core.security import get_current_user, require_roles
+from app.core.security import get_current_user, require_roles, get_user_property_filter
 from app.schemas.properties import PropertyCreate, PropertyUpdate, PropertyResponse
 from app.services.audit_service import log_action
 
@@ -24,6 +24,12 @@ async def list_properties(
         query = query.where(Property.organization_id == current_user.organization_id)
     elif org_id:
         query = query.where(Property.organization_id == org_id)
+    # Filter by assigned properties for non-owner roles
+    prop_ids = await get_user_property_filter(current_user, db)
+    if prop_ids is not None:
+        if not prop_ids:
+            return []
+        query = query.where(Property.id.in_(prop_ids))
     result = await db.execute(query.order_by(Property.created_at.desc()))
     return result.scalars().all()
 

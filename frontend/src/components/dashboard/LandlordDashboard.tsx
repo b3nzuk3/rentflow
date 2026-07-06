@@ -191,19 +191,19 @@ export function LandlordDashboard({ summary, onNavigate }: Props) {
               <p className="text-xs text-on-surface-variant mt-1">Add a property to get started.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {properties.map((prop) => (
-                <div key={prop.id} className="flat-card rounded-2xl p-5 relative overflow-hidden group">
-                  <div className="absolute -right-10 -top-10 w-32 h-32 bg-primary/5 rounded-full blur-xl transition-transform group-hover:scale-125 duration-500" />
-                  <div className="flex justify-between items-start mb-3 relative z-10">
-                    <div>
-                      <h5 className="text-sm font-extrabold text-on-surface tracking-tight">{prop.name}</h5>
-                      <div className="flex items-center gap-1 mt-0.5">
-                        <MapPin className="w-3 h-3 text-on-surface-variant" />
-                        <p className="text-[11px] font-semibold text-on-surface-variant">{prop.location}</p>
+                <div key={prop.id} className="flat-card rounded-2xl p-6 relative overflow-hidden group hover:shadow-lg transition-shadow duration-300">
+                  <div className="absolute -right-10 -top-10 w-40 h-40 bg-primary/5 rounded-full blur-2xl transition-transform group-hover:scale-125 duration-500" />
+                  <div className="flex justify-between items-start mb-4 relative z-10">
+                    <div className="min-w-0 flex-1">
+                      <h5 className="text-base font-extrabold text-on-surface tracking-tight truncate">{prop.name}</h5>
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <MapPin className="w-3.5 h-3.5 text-on-surface-variant shrink-0" />
+                        <p className="text-xs font-semibold text-on-surface-variant truncate">{prop.location}</p>
                       </div>
                     </div>
-                    <span className={`text-[10px] font-bold font-mono px-2 py-0.5 rounded-full ${
+                    <span className={`text-[10px] font-bold font-mono px-2.5 py-1 rounded-full shrink-0 ml-3 ${
                       prop.status === "Active"
                         ? "bg-emerald-50 text-emerald-700"
                         : "bg-surface-container text-on-surface-variant"
@@ -212,26 +212,26 @@ export function LandlordDashboard({ summary, onNavigate }: Props) {
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2 relative z-10">
-                    <div className="bg-surface-container/50 rounded-lg p-2 text-center">
-                      <p className="text-[9px] font-bold font-mono uppercase text-on-surface-variant">Units</p>
-                      <p className="text-lg font-extrabold text-on-surface">{prop.units.length}</p>
+                  <div className="grid grid-cols-3 gap-3 relative z-10 mb-4">
+                    <div className="bg-surface-container/60 rounded-xl p-3 text-center">
+                      <p className="text-[10px] font-bold font-mono uppercase text-on-surface-variant mb-1">Units</p>
+                      <p className="text-xl font-extrabold text-on-surface">{prop.units.length}</p>
                     </div>
-                    <div className="bg-surface-container/50 rounded-lg p-2 text-center">
-                      <p className="text-[9px] font-bold font-mono uppercase text-on-surface-variant">Occupied</p>
-                      <p className="text-lg font-extrabold text-emerald-600">{prop.units.filter((u) => u.status === "Occupied").length}</p>
+                    <div className="bg-surface-container/60 rounded-xl p-3 text-center">
+                      <p className="text-[10px] font-bold font-mono uppercase text-on-surface-variant mb-1">Occupied</p>
+                      <p className="text-xl font-extrabold text-emerald-600">{prop.units.filter((u) => u.status === "Occupied").length}</p>
                     </div>
-                    <div className="bg-surface-container/50 rounded-lg p-2 text-center">
-                      <p className="text-[9px] font-bold font-mono uppercase text-on-surface-variant">Rate</p>
-                      <p className={`text-lg font-extrabold ${prop.occupancyRate >= 80 ? "text-emerald-600" : prop.occupancyRate >= 50 ? "text-amber-600" : "text-on-surface"}`}>
+                    <div className="bg-surface-container/60 rounded-xl p-3 text-center">
+                      <p className="text-[10px] font-bold font-mono uppercase text-on-surface-variant mb-1">Rate</p>
+                      <p className={`text-xl font-extrabold ${prop.occupancyRate >= 80 ? "text-emerald-600" : prop.occupancyRate >= 50 ? "text-amber-600" : "text-on-surface"}`}>
                         {prop.occupancyRate}%
                       </p>
                     </div>
                   </div>
 
-                  <div className="w-full bg-surface-container rounded-full h-1 mt-2 relative z-10">
+                  <div className="w-full bg-surface-container rounded-full h-2 relative z-10 mb-3">
                     <div
-                      className={`h-1 rounded-full transition-all duration-700 ${
+                      className={`h-2 rounded-full transition-all duration-700 ${
                         prop.occupancyRate >= 80 ? "bg-emerald-500" : prop.occupancyRate >= 50 ? "bg-amber-500" : "bg-primary"
                       }`}
                       style={{ width: `${prop.occupancyRate}%` }}
@@ -239,18 +239,25 @@ export function LandlordDashboard({ summary, onNavigate }: Props) {
                   </div>
 
                   {prop.description && (
-                    <p className="text-[11px] text-on-surface-variant mt-2 line-clamp-1 relative z-10">{prop.description}</p>
+                    <p className="text-xs text-on-surface-variant mb-3 line-clamp-1 relative z-10">{prop.description}</p>
                   )}
 
-                  <div className="flex items-center justify-between mt-3 pt-2 border-t border-outline-variant/10 relative z-10">
-                    <span className="text-[10px] font-mono text-on-surface-variant">
-                      {prop.units.filter((u) => u.status === "Occupied").length} occ · {prop.units.filter((u) => u.status === "Vacant").length} vac · {prop.units.filter((u) => u.status === "Reserved").length} res
-                    </span>
+                  <div className="flex items-center justify-between pt-3 border-t border-outline-variant/10 relative z-10">
+                    <div className="flex items-center gap-3">
+                      <span className="text-[11px] font-semibold text-on-surface-variant flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                        {prop.units.filter((u) => u.status === "Occupied").length} occupied
+                      </span>
+                      <span className="text-[11px] font-semibold text-on-surface-variant flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-surface-container border border-on-surface-variant/30" />
+                        {prop.units.filter((u) => u.status === "Vacant").length} vacant
+                      </span>
+                    </div>
                     <button
                       onClick={() => onNavigate?.("properties")}
-                      className="flex items-center gap-1 text-[11px] font-bold text-primary hover:underline"
+                      className="flex items-center gap-1 text-xs font-bold text-primary hover:underline"
                     >
-                      Details <ChevronRight className="w-3 h-3" />
+                      Details <ChevronRight className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>

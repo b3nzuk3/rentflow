@@ -5,7 +5,7 @@ import uuid as uuid_lib
 
 from app.db.database import get_db
 from app.db.models import Lease, Unit, UserRole, UnitStatus, LeaseStatus
-from app.core.security import get_current_user, require_roles
+from app.core.security import get_current_user, require_roles, get_user_property_filter
 from app.schemas.leases import LeaseCreate, LeaseUpdate, LeaseResponse
 from app.services.audit_service import log_action
 
@@ -17,6 +17,12 @@ async def list_leases(status: str = None, db: AsyncSession = Depends(get_db), cu
     query = select(Lease).where(Lease.organization_id == current_user.organization_id)
     if status:
         query = query.where(Lease.status == status)
+    # Filter by assigned properties for non-owner roles (join through Unit)
+    prop_ids = await get_user_property_filter(current_user, db)
+    if prop_ids is not None:
+        if not prop_ids:
+            return []
+        query = query.join(Unit, Lease.unit_id == Unit.id).where(Unit.property_id.in_(prop_ids))
     result = await db.execute(query.order_by(Lease.created_at.desc()))
     return result.scalars().all()
 

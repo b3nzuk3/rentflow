@@ -29,6 +29,7 @@ export interface User {
   role: UserRole;
   is_active: boolean;
   created_at: string;
+  assigned_property_ids?: string[];
 }
 
 export interface Property {
@@ -123,6 +124,21 @@ export interface RentSchedule {
   due_date: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface RentRollItem {
+  tenant_name: string;
+  tenant_email: string;
+  tenant_phone: string;
+  unit_code: string;
+  property_name: string;
+  monthly_rent: number;
+  expected_amount: number;
+  paid_amount: number;
+  balance: number;
+  status: string; // "Pending" | "Paid" | "Partial" | "Overdue" | "Advance"
+  due_date: string | null;
+  lease_id: string;
 }
 
 export interface AuditLog {

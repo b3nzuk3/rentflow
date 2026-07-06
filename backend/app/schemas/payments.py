@@ -4,6 +4,24 @@ from datetime import datetime
 from app.db.models import PaymentStatus, PaymentMethod, PaymentType
 
 
+class RentRollItem(BaseModel):
+    tenant_name: str
+    tenant_email: str
+    tenant_phone: str
+    unit_code: str
+    property_name: str
+    monthly_rent: int
+    expected_amount: int
+    paid_amount: int
+    balance: int
+    status: str
+    due_date: Optional[str]
+    lease_id: str
+
+    class Config:
+        from_attributes = True
+
+
 class PaymentCreate(BaseModel):
     lease_id: str
     amount: int

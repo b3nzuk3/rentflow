@@ -78,3 +78,15 @@ def require_roles(*roles: UserRole):
             )
         return current_user
     return role_checker
+
+
+async def get_user_property_filter(current_user, db):
+    """Returns property IDs to filter by, or None for org_owner (no filter)."""
+    from app.db.models import UserProperty
+    if current_user.role == UserRole.ORG_OWNER:
+        return None  # No filter — sees everything
+    result = await db.execute(
+        select(UserProperty.property_id).where(UserProperty.user_id == current_user.id)
+    )
+    ids = [row[0] for row in result.all()]
+    return ids if ids else []

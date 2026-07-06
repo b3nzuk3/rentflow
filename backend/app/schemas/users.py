@@ -27,6 +27,7 @@ class UserResponse(BaseModel):
     role: UserRole
     is_active: bool
     created_at: datetime
+    assigned_property_ids: list[str] = []
 
     @field_validator('id', 'organization_id', mode='before')
     @classmethod
@@ -43,6 +44,7 @@ class UserInvite(BaseModel):
     email: EmailStr
     phone_number: str
     role: UserRole
+    property_ids: list[str] = []
 
 
 class UserUpdate(BaseModel):

@@ -9,8 +9,9 @@ import {
   getUnits,
   getProperties,
   getStoredUser,
+  getRentRoll,
 } from "@/lib/api";
-import type { Payment, Lease, Tenant, Unit, Property } from "@/types";
+import type { Payment, Lease, Tenant, Unit, Property, RentRollItem } from "@/types";
 import { useDataRefresh, notifyDataChanged } from "@/lib/refresh";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -24,6 +25,21 @@ interface ResolvedPayment extends Payment {
   tenantName: string;
   unitCode: string;
   propertyName: string;
+  propertyId: string;
+}
+
+// ── Rent Roll Types ──────────────────────────────────────────────────────────
+
+type RentRollStatus = RentRollItem["status"];
+type RentRollFilter = "All" | RentRollStatus;
+
+const RENT_ROLL_FILTERS: RentRollFilter[] = ["All", "Overdue", "Pending", "Partial", "Paid", "Advance"];
+
+interface RentRollSummary {
+  totalExpected: number;
+  totalCollected: number;
+  totalOutstanding: number;
+  delinquentCount: number;
 }
 
 // ── Status badge config ──────────────────────────────────────────────────────
@@ -35,6 +51,29 @@ const STATUS_BADGE: Record<PaymentStatus, { bg: string; dot: string; text: strin
   Refunded: { bg: "bg-blue-50",   dot: "bg-blue-500",   text: "text-blue-700" },
 };
 
+const RENT_ROLL_STATUS_BADGE: Record<RentRollStatus, { bg: string; dot: string; text: string; pulse?: boolean }> = {
+  Paid:       { bg: "bg-emerald-50",  dot: "bg-emerald-500",  text: "text-emerald-700" },
+  Partial:    { bg: "bg-amber-50",    dot: "bg-amber-500",    text: "text-amber-700" },
+  Pending:    { bg: "bg-red-50",      dot: "bg-red-500",      text: "text-red-700" },
+  Overdue:    { bg: "bg-red-50",      dot: "bg-red-500",      text: "text-red-700", pulse: true },
+  Advance:    { bg: "bg-blue-50",     dot: "bg-blue-500",     text: "text-blue-700" },
+};
+
+const PAYMENT_STATUS_ORDER: Record<PaymentStatus, number> = {
+  Pending: 0,
+  Verified: 1,
+  Rejected: 2,
+  Refunded: 3,
+};
+
+const RENT_ROLL_STATUS_ORDER: Record<RentRollStatus, number> = {
+  Overdue: 0,
+  Pending: 1,
+  Partial: 2,
+  Paid: 3,
+  Advance: 4,
+};
+
 // ── Small Components ─────────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: PaymentStatus }) {
@@ -42,6 +81,16 @@ function StatusBadge({ status }: { status: PaymentStatus }) {
   return (
     <span className={`inline-flex items-center gap-1.5 text-xs font-bold font-mono px-2.5 py-1 rounded-full ${s.bg} ${s.text}`}>
       <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} />
+      {status}
+    </span>
+  );
+}
+
+function RentRollStatusBadge({ status }: { status: RentRollStatus }) {
+  const s = RENT_ROLL_STATUS_BADGE[status];
+  return (
+    <span className={`inline-flex items-center gap-1.5 text-xs font-bold font-mono px-2.5 py-1 rounded-full ${s.bg} ${s.text} ${s.pulse ? "animate-pulse" : ""}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${s.dot} ${s.pulse ? "animate-pulse" : ""}`} />
       {status}
     </span>
   );
@@ -83,18 +132,34 @@ function Modal({
 // ── Main Component ───────────────────────────────────────────────────────────
 
 export function LandlordPayments() {
-  // Data state
+  // View state
+  const [view, setView] = useState<"payments" | "rent_roll">("payments");
+
+  // Data state - Payments
   const [payments, setPayments] = useState<Payment[]>([]);
   const [leases, setLeases] = useState<Lease[]>([]);
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [unitList, setUnitList] = useState<Unit[]>([]);
   const [propertyList, setPropertyList] = useState<Property[]>([]);
+
+  // Data state - Rent Roll
+  const [rentRoll, setRentRoll] = useState<RentRollItem[]>([]);
+
+  // Common state
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Filter / search
+  // Filter / search - Payments
   const [statusFilter, setStatusFilter] = useState<PaymentFilter>("All");
   const [searchQuery, setSearchQuery] = useState("");
+  const [monthFilter, setMonthFilter] = useState<string>("all");
+  const [propertyFilter, setPropertyFilter] = useState<string>("all");
+
+  // Filter / search - Rent Roll
+  const [rentRollStatusFilter, setRentRollStatusFilter] = useState<RentRollFilter>("All");
+  const [rentRollSearchQuery, setRentRollSearchQuery] = useState("");
+  const [rentRollMonthFilter, setRentRollMonthFilter] = useState<string>("all");
+  const [rentRollPropertyFilter, setRentRollPropertyFilter] = useState<string>("all");
 
   // Detail modal
   const [selectedPayment, setSelectedPayment] = useState<ResolvedPayment | null>(null);
@@ -102,37 +167,52 @@ export function LandlordPayments() {
   const [submitting, setSubmitting] = useState(false);
 
   // ── Fetch all data on mount ──────────────────────────────────────────────
+  // ── Fetch all data on mount ──────────────────────────────────────────────
 
+    const fetchData = useCallback(async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        if (view === "payments") {
+          const [paymentsRes, leasesRes, tenantsRes, unitsRes, propsRes] = await Promise.all([
+            getPayments(),
+            getLeases(),
+            getTenants(),
+            getUnits(),
+            getProperties(),
+          ]);
+          setPayments(paymentsRes);
+          setLeases(leasesRes);
+          setTenants(tenantsRes);
+          setUnitList(unitsRes);
+          setPropertyList(propsRes);
+        } else {
+          const [rentRollRes, leasesRes, tenantsRes, unitsRes, propsRes] = await Promise.all([
+            getRentRoll(),
+            getLeases(),
+            getTenants(),
+            getUnits(),
+            getProperties(),
+          ]);
+          setRentRoll(rentRollRes);
+          setLeases(leasesRes);
+          setTenants(tenantsRes);
+          setUnitList(unitsRes);
+          setPropertyList(propsRes);
+        }
+      } catch (err) {
+        console.error("Failed to fetch payment data:", err);
+        setError("Failed to load payment records. Please refresh.");
+      } finally {
+        setLoading(false);
+      }
+    }, [view]);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [paymentsRes, leasesRes, tenantsRes, unitsRes, propsRes] = await Promise.all([
-        getPayments(),
-        getLeases(),
-        getTenants(),
-        getUnits(),
-        getProperties(),
-      ]);
-      setPayments(paymentsRes);
-      setLeases(leasesRes);
-      setTenants(tenantsRes);
-      setUnitList(unitsRes);
-      setPropertyList(propsRes);
-    } catch (err) {
-      console.error("Failed to fetch payment data:", err);
-      setError("Failed to load payment records. Please refresh.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    useDataRefresh(fetchData);
 
-  useDataRefresh(fetchData);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    useEffect(() => {
+      fetchData();
+    }, [fetchData]);
 
 
   // ── Resolve display names ────────────────────────────────────────────────
@@ -149,6 +229,7 @@ export function LandlordPayments() {
         tenantName: tenant ? `${tenant.first_name} ${tenant.last_name}` : "Unknown Tenant",
         unitCode: unit?.unit_code ?? "—",
         propertyName: property?.name ?? "—",
+        propertyId: unit?.property_id ?? "",
       };
     },
     [leases, tenants, unitList, propertyList]
@@ -164,6 +245,16 @@ export function LandlordPayments() {
       resolved = resolved.filter((p) => p.status === statusFilter);
     }
 
+    // Month filter (billing_period is "YYYY-MM")
+    if (monthFilter !== "all") {
+      resolved = resolved.filter((p) => p.billing_period === monthFilter);
+    }
+
+    // Property filter
+    if (propertyFilter !== "all") {
+      resolved = resolved.filter((p) => p.propertyId === propertyFilter);
+    }
+
     // Search filter
     const q = searchQuery.toLowerCase().trim();
     if (q) {
@@ -176,7 +267,7 @@ export function LandlordPayments() {
     }
 
     return resolved;
-  }, [payments, statusFilter, searchQuery, resolvePayment]);
+  }, [payments, statusFilter, monthFilter, propertyFilter, searchQuery, resolvePayment]);
 
   // ── Stats ────────────────────────────────────────────────────────────────
 
@@ -187,6 +278,27 @@ export function LandlordPayments() {
       .reduce((sum, p) => sum + p.amount, 0);
     return { pendingCount, verifiedVolume };
   }, [payments]);
+
+  // ── Rent Roll computed ──────────────────────────────────────────────────
+  const filteredRentRoll = useMemo(() => {
+    return rentRoll.filter((item) => {
+      const passStatus = rentRollStatusFilter === "All" || item.status === rentRollStatusFilter;
+      const passProperty = rentRollPropertyFilter === "all" || item.property_name === rentRollPropertyFilter;
+      const passSearch = !rentRollSearchQuery ||
+        item.tenant_name.toLowerCase().includes(rentRollSearchQuery.toLowerCase()) ||
+        item.unit_code.toLowerCase().includes(rentRollSearchQuery.toLowerCase()) ||
+        item.property_name.toLowerCase().includes(rentRollSearchQuery.toLowerCase());
+      return passStatus && passProperty && passSearch;
+    });
+  }, [rentRoll, rentRollStatusFilter, rentRollPropertyFilter, rentRollSearchQuery]);
+
+  const rentRollSummary = useMemo(() => {
+    const totalExpected = rentRoll.reduce((s, r) => s + r.expected_amount, 0);
+    const totalCollected = rentRoll.reduce((s, r) => s + r.paid_amount, 0);
+    const totalOutstanding = rentRoll.reduce((s, r) => s + Math.max(0, r.balance), 0);
+    const delinquentCount = rentRoll.filter(r => r.balance > 0).length;
+    return { totalExpected, totalCollected, totalOutstanding, delinquentCount };
+  }, [rentRoll]);
 
   // ── Verify / Reject ─────────────────────────────────────────────────────
 
@@ -242,8 +354,34 @@ export function LandlordPayments() {
         <p className="text-on-surface-variant font-medium mt-1">
           Perform audits, match external mobile money transactions, and approve tenant rent payments.
         </p>
+        {/* View tabs */}
+        <div className="flex gap-2 mt-4">
+          <button
+            onClick={() => setView("payments")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold font-mono transition-all ${
+              view === "payments"
+                ? "bg-primary text-white shadow-sm"
+                : "bg-white border border-outline-variant text-on-surface-variant hover:border-primary/40"
+            }`}
+          >
+            Payments
+          </button>
+          <button
+            onClick={() => setView("rent_roll")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold font-mono transition-all ${
+              view === "rent_roll"
+                ? "bg-primary text-white shadow-sm"
+                : "bg-white border border-outline-variant text-on-surface-variant hover:border-primary/40"
+            }`}
+          >
+            Rent Roll
+          </button>
+        </div>
       </section>
 
+      {/* ═══ PAYMENTS VIEW ═══ */}
+      {view === "payments" && (
+        <>
       {/* Error banner */}
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center justify-between gap-4">
@@ -279,15 +417,15 @@ export function LandlordPayments() {
         </div>
       </div>
 
-      {/* Filters row: status tabs + search */}
+      {/* Filters row: status tabs + month + property + search */}
       <div className="flex flex-col md:flex-row md:items-center gap-4">
-        {/* Status filter buttons */}
+        {/* Status filter buttons — counts respect month & property filters */}
         <div className="flex flex-wrap gap-2">
           {PAYMENT_FILTERS.map((filter) => {
-            const count =
-              filter === "All"
-                ? payments.length
-                : payments.filter((p) => p.status === filter).length;
+            const base = payments.map(resolvePayment);
+            const monthFiltered = monthFilter !== "all" ? base.filter(p => p.billing_period === monthFilter) : base;
+            const propFiltered = propertyFilter !== "all" ? monthFiltered.filter(p => p.propertyId === propertyFilter) : monthFiltered;
+            const count = filter === "All" ? propFiltered.length : propFiltered.filter(p => p.status === filter).length;
             return (
               <button
                 key={filter}
@@ -304,6 +442,24 @@ export function LandlordPayments() {
             );
           })}
         </div>
+
+        {/* Month filter */}
+        <select value={monthFilter} onChange={e => setMonthFilter(e.target.value)}
+          className="px-3 py-2 rounded-xl text-xs font-bold font-mono border border-outline-variant bg-white text-on-surface-variant focus:outline-none focus:ring-2 focus:ring-primary/30">
+          <option value="all">All Months</option>
+          {Array.from(new Set(payments.map(p => p.billing_period).filter((m): m is string => !!m))).sort().reverse().map(m => (
+            <option key={m} value={m}>{m}</option>
+          ))}
+        </select>
+
+        {/* Property filter */}
+        <select value={propertyFilter} onChange={e => setPropertyFilter(e.target.value)}
+          className="px-3 py-2 rounded-xl text-xs font-bold font-mono border border-outline-variant bg-white text-on-surface-variant focus:outline-none focus:ring-2 focus:ring-primary/30">
+          <option value="all">All Properties</option>
+          {propertyList.map(p => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
 
         {/* Search input */}
         <div className="relative md:ml-auto w-full md:w-72">
@@ -433,6 +589,129 @@ export function LandlordPayments() {
           </div>
         )}
       </div>
+        </>
+      )}
+
+      {/* ═══ RENT ROLL VIEW ═══ */}
+      {view === "rent_roll" && (
+        <div className="space-y-6">
+          {/* Summary cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-white rounded-2xl border border-outline-variant p-5">
+              <p className="text-[10px] font-bold font-mono text-zinc-500 uppercase">Total Expected</p>
+              <p className="text-2xl font-extrabold text-on-surface mt-1">KSh {rentRollSummary.totalExpected.toLocaleString()}</p>
+            </div>
+            <div className="bg-white rounded-2xl border border-outline-variant p-5">
+              <p className="text-[10px] font-bold font-mono text-zinc-500 uppercase">Total Collected</p>
+              <p className="text-2xl font-extrabold text-emerald-600 mt-1">KSh {rentRollSummary.totalCollected.toLocaleString()}</p>
+            </div>
+            <div className="bg-white rounded-2xl border border-outline-variant p-5">
+              <p className="text-[10px] font-bold font-mono text-zinc-500 uppercase">Outstanding</p>
+              <p className={`text-2xl font-extrabold mt-1 ${rentRollSummary.totalOutstanding > 0 ? "text-red-600" : "text-on-surface"}`}>KSh {rentRollSummary.totalOutstanding.toLocaleString()}</p>
+            </div>
+            <div className="bg-white rounded-2xl border border-outline-variant p-5">
+              <p className="text-[10px] font-bold font-mono text-zinc-500 uppercase">Delinquent</p>
+              <p className={`text-2xl font-extrabold mt-1 ${rentRollSummary.delinquentCount > 0 ? "text-red-600" : "text-on-surface"}`}>{rentRollSummary.delinquentCount}</p>
+            </div>
+          </div>
+
+          {/* Filters */}
+          <div className="flex flex-col md:flex-row md:items-center gap-4">
+            <div className="flex flex-wrap gap-2">
+              {RENT_ROLL_FILTERS.map((filter) => {
+                const propFiltered = rentRollPropertyFilter !== "all" ? rentRoll.filter(r => r.property_name === rentRollPropertyFilter) : rentRoll;
+                const count = filter === "All" ? propFiltered.length : propFiltered.filter(r => r.status === filter).length;
+                return (
+                  <button key={filter} onClick={() => setRentRollStatusFilter(filter)}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold font-mono transition-all ${
+                      rentRollStatusFilter === filter
+                        ? "bg-primary text-white shadow-sm"
+                        : "bg-white border border-outline-variant text-on-surface-variant hover:border-primary/40"
+                    }`}>
+                    {filter} <span className="ml-1.5 opacity-70">({count})</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Property filter */}
+            <select value={rentRollPropertyFilter} onChange={e => setRentRollPropertyFilter(e.target.value)}
+              className="px-3 py-2 rounded-xl text-xs font-bold font-mono border border-outline-variant bg-white text-on-surface-variant focus:outline-none focus:ring-2 focus:ring-primary/30">
+              <option value="all">All Properties</option>
+              {Array.from(new Set(rentRoll.map(r => r.property_name))).sort().map(name => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
+
+            <div className="relative md:ml-auto w-full md:w-72">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-on-surface-variant/50" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
+              </svg>
+              <input type="text" value={rentRollSearchQuery} onChange={e => setRentRollSearchQuery(e.target.value)}
+                placeholder="Search tenant, unit, property..."
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-outline-variant bg-surface-container/30 text-sm font-medium text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all" />
+            </div>
+          </div>
+
+          {/* Rent Roll Table */}
+          <div className="bg-white rounded-2xl border border-outline-variant shadow-sm overflow-hidden">
+            {loading ? (
+              <div className="p-12 text-center">
+                <p className="text-sm font-bold font-mono text-on-surface-variant">Loading rent roll...</p>
+              </div>
+            ) : filteredRentRoll.length === 0 ? (
+              <div className="p-12 text-center text-on-surface-variant">
+                <p className="text-sm font-bold text-on-surface">No rent roll data</p>
+                <p className="text-xs text-on-surface-variant mt-1">No active leases found for the current period.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead className="bg-slate-50">
+                    <tr className="border-b border-outline-variant">
+                      <th className="px-6 py-4 text-xs font-bold font-mono text-on-surface-variant uppercase">Tenant</th>
+                      <th className="px-6 py-4 text-xs font-bold font-mono text-on-surface-variant uppercase">Unit</th>
+                      <th className="px-6 py-4 text-xs font-bold font-mono text-on-surface-variant uppercase">Property</th>
+                      <th className="px-6 py-4 text-xs font-bold font-mono text-on-surface-variant uppercase text-right">Rent Due</th>
+                      <th className="px-6 py-4 text-xs font-bold font-mono text-on-surface-variant uppercase text-right">Paid</th>
+                      <th className="px-6 py-4 text-xs font-bold font-mono text-on-surface-variant uppercase text-right">Balance</th>
+                      <th className="px-6 py-4 text-xs font-bold font-mono text-on-surface-variant uppercase">Status</th>
+                      <th className="px-6 py-4 text-xs font-bold font-mono text-on-surface-variant uppercase">Due Date</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-outline-variant/60">
+                    {filteredRentRoll.map((item, i) => {
+                      const badge = RENT_ROLL_STATUS_BADGE[item.status as RentRollStatus] || RENT_ROLL_STATUS_BADGE.Pending;
+                      return (
+                        <tr key={i} className="hover:bg-primary/[0.02] transition-colors">
+                          <td className="px-6 py-4">
+                            <p className="font-bold text-sm text-on-surface">{item.tenant_name}</p>
+                            <p className="text-[10px] text-on-surface-variant font-mono mt-0.5">{item.tenant_email}</p>
+                          </td>
+                          <td className="px-6 py-4 text-sm font-mono font-bold text-on-surface">{item.unit_code}</td>
+                          <td className="px-6 py-4 text-sm font-medium text-on-surface-variant">{item.property_name}</td>
+                          <td className="px-6 py-4 text-sm font-mono font-bold text-on-surface text-right">KSh {item.expected_amount.toLocaleString()}</td>
+                          <td className="px-6 py-4 text-sm font-mono font-bold text-emerald-600 text-right">KSh {item.paid_amount.toLocaleString()}</td>
+                          <td className={`px-6 py-4 text-sm font-mono font-bold text-right ${item.balance > 0 ? "text-red-600" : "text-on-surface"}`}>
+                            KSh {item.balance.toLocaleString()}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={`inline-flex items-center gap-1.5 text-xs font-bold font-mono px-2.5 py-1 rounded-full ${badge.bg} ${badge.text} ${badge.pulse ? "animate-pulse" : ""}`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${badge.dot} ${badge.pulse ? "animate-pulse" : ""}`} />
+                              {item.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-xs font-mono text-on-surface-variant">{item.due_date || "—"}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── Detail Modal ──────────────────────────────────────────────────── */}
       <Modal
