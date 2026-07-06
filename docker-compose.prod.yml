@@ -79,8 +79,6 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       target: runner
-    environment:
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
       interval: 30s
