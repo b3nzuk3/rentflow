@@ -138,7 +138,7 @@ The test suite automatically:
 
 ---
 
-## Docker
+## Docker (Development)
 
 ```bash
 # Full stack (PostgreSQL + Redis + Backend + Frontend)
@@ -147,6 +147,75 @@ docker compose up -d
 # View logs
 docker compose logs -f backend
 ```
+
+---
+
+## Deployment (Production)
+
+### Prerequisites
+
+- A VPS (Ubuntu 22.04+ / Debian 12+)
+- Docker & Docker Compose v2
+- A domain with DNS A record pointing to your server
+
+### Quick Deploy
+
+```bash
+# 1. Clone & configure
+git clone https://github.com/b3nzuk3/rentflow.git
+cd rentflow
+cp .env.example .env
+nano .env  # Set POSTGRES_PASSWORD, SECRET_KEY, DOMAIN, EMAIL
+
+# 2. Build & start
+docker compose -f docker-compose.prod.yml up -d --build
+
+# 3. Run migrations & seed
+docker compose -f docker-compose.prod.yml exec backend alembic upgrade head
+docker compose -f docker-compose.prod.yml exec backend python seed_prod.py
+
+# 4. Setup SSL
+./scripts/init-ssl.sh
+docker compose -f docker-compose.prod.yml restart nginx
+
+# 5. Setup automated backups
+./scripts/setup-cron.sh
+
+# 6. Verify
+curl -k https://yourdomain.com/api/health
+```
+
+### Production Services
+
+| Service | Description | Port |
+|---------|-------------|------|
+| nginx | Reverse proxy + SSL termination | 80, 443 |
+| backend | FastAPI API server | 8000 (internal) |
+| frontend | Next.js SSR app | 3000 (internal) |
+| db | PostgreSQL 16 | 5432 (internal) |
+| redis | Redis 7 cache | 6379 (internal) |
+
+### Backup & Restore
+
+```bash
+# Manual backup
+./scripts/backup-db.sh
+
+# Restore from backup
+./scripts/restore-db.sh ./backups/rentflow_20260706_020000.sql.gz
+```
+
+Automated daily backups run at 2:00 AM via cron.
+
+### Updating
+
+```bash
+git pull origin main
+docker compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml exec backend alembic upgrade head
+```
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for the full deployment guide.
 
 ---
 
@@ -204,7 +273,11 @@ rentflow/
 │   │   └── stores/              # Zustand state
 │   └── Dockerfile
 ├── .github/workflows/ci.yml     # CI/CD
-└── docker-compose.yml           # Full stack
+├── docker-compose.yml           # Development
+├── docker-compose.prod.yml      # Production
+├── nginx/                       # Reverse proxy config
+├── scripts/                     # Deployment scripts
+└── DEPLOYMENT.md                # Full deployment guide
 ```
 
 ---
