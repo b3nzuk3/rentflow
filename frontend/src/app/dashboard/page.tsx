@@ -121,12 +121,8 @@ export default function DashboardPage() {
       {/* Main content with left offset for sidebar on desktop */}
       <main className="lg:ml-64 min-h-screen pt-16 lg:pt-0">
         <div className="px-6 py-8 md:px-10 max-w-7xl mx-auto">
-          {currentRole === "tenant" && (
-            <>
-              <TenantDashboard />
-              {activeTab === "settings" && <TenantSettings />}
-            </>
-          )}
+          {currentRole === "tenant" && activeTab === "dashboard" && <TenantDashboard />}
+          {currentRole === "tenant" && activeTab === "settings" && <TenantSettings />}
           {currentRole === "super_admin" && <SuperAdminDashboard />}
 
           {isLandlord && activeTab === "dashboard" && summary && (
