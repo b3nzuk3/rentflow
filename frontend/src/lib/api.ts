@@ -9,8 +9,8 @@ export const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  // Add trailing slash for FastAPI routes (redirect_slashes=False)
-  if (config.url && !config.url.endsWith("/")) {
+  // Add trailing slash for FastAPI list routes (redirect_slashes=False)
+  if (config.method === "get" && config.url && !config.url.endsWith("/")) {
     const qIdx = config.url.indexOf("?");
     if (qIdx === -1) {
       config.url += "/";
