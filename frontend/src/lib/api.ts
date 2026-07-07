@@ -9,6 +9,16 @@ export const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
+  // Add trailing slash for FastAPI routes (redirect_slashes=False)
+  if (config.url && !config.url.endsWith("/")) {
+    const qIdx = config.url.indexOf("?");
+    if (qIdx === -1) {
+      config.url += "/";
+    } else {
+      config.url = config.url.substring(0, qIdx) + "/" + config.url.substring(qIdx);
+    }
+  }
+
   const token = localStorage.getItem("access_token");
   if (token) {
     // Don't add auth header for login/signup/refresh endpoints
