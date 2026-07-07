@@ -217,12 +217,24 @@ export function Sidebar({
           {currentRole === "tenant" && (
             <>
               <p className="px-3 pt-2 pb-1.5 text-[9px] font-bold font-mono text-zinc-500 uppercase tracking-widest">Tenant</p>
-              <div className="px-3 py-2">
-                <div className="flex items-center gap-2 text-emerald-300 text-xs font-semibold">
-                  <Layers className="w-4 h-4" />
-                  <span>Rent Roll Portal</span>
-                </div>
-              </div>
+              <button onClick={() => handleTabChange("dashboard")}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${
+                  activeTab === "dashboard"
+                    ? "bg-primary text-white shadow-md shadow-primary/20"
+                    : "text-zinc-400 hover:text-white hover:bg-zinc-800/60"
+                }`}>
+                <LayoutDashboard className="w-4.5 h-4.5 shrink-0" />
+                <span>Dashboard</span>
+              </button>
+              <button onClick={() => handleTabChange("settings")}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${
+                  activeTab === "settings"
+                    ? "bg-primary text-white shadow-md shadow-primary/20"
+                    : "text-zinc-400 hover:text-white hover:bg-zinc-800/60"
+                }`}>
+                <Settings className="w-4.5 h-4.5 shrink-0" />
+                <span>Settings</span>
+              </button>
             </>
           )}
         </nav>
