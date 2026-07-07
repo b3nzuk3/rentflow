@@ -2,7 +2,11 @@ import uuid
 import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.pool import NullPool
 from app.db.models import AuditLog
+
+TEST_DATABASE_URL = "postgresql+asyncpg://rentflow:rentflow@localhost:5432/rentflow_test"
 
 
 class TestAudit:
@@ -29,12 +33,16 @@ class TestAudit:
         assert len(data) >= 1
 
     @pytest.mark.asyncio
-    async def test_audit_logs_after_mutations(self, authenticated_client: AsyncClient, test_db, test_org):
+    async def test_audit_logs_after_mutations(self, authenticated_client: AsyncClient, test_org):
         """Test that mutations create audit log entries."""
-        result = await test_db.execute(
-            select(AuditLog).where(AuditLog.organization_id == test_org.id)
-        )
-        initial_count = len(result.scalars().all())
+        # Use a separate session to avoid event loop conflicts with the app's sessions
+        engine = create_async_engine(TEST_DATABASE_URL, echo=False, poolclass=NullPool)
+        session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async with session_factory() as db:
+            result = await db.execute(
+                select(AuditLog).where(AuditLog.organization_id == test_org.id)
+            )
+            initial_count = len(result.scalars().all())
 
         data = {
             "name": "Audit Test Property",
@@ -44,8 +52,10 @@ class TestAudit:
         }
         await authenticated_client.post("/api/v1/properties/", json=data)
 
-        result = await test_db.execute(
-            select(AuditLog).where(AuditLog.organization_id == test_org.id)
-        )
-        final_count = len(result.scalars().all())
+        async with session_factory() as db:
+            result = await db.execute(
+                select(AuditLog).where(AuditLog.organization_id == test_org.id)
+            )
+            final_count = len(result.scalars().all())
+        await engine.dispose()
         assert final_count > initial_count
