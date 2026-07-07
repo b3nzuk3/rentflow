@@ -4,199 +4,111 @@
 
 **Goal:** Make RentFlow deployable to a VPS with Docker Compose, Nginx reverse proxy, SSL via Certbot, automated backups, and production-grade env config.
 
-**Architecture:** Docker Compose for orchestration, Nginx for reverse proxy + SSL termination, Let's Encrypt for certificates, cron-based PostgreSQL backups to local + optional S3.
+**Architecture:** Docker Compose for orchestration, Nginx for reverse proxy + SSL termination, Let's Encrypt for certificates, cron-based PostgreSQL backups.
 
 **Tech Stack:** Docker Compose v2, Nginx, Certbot, PostgreSQL 16, cron, bash scripts
 
 ---
 
-## Task 1: Production Docker Compose
+## ✅ COMPLETED TASKS
 
-**Files:**
-- Create: `docker-compose.prod.yml`
-- Create: `.env.example`
+### Task 1: Production Docker Compose
+- `docker-compose.prod.yml` — 6 services (db, redis, backend, frontend, nginx, certbot)
+- `.env.example` — template with all required vars
+- `frontend/.dockerignore` + `backend/.dockerignore` — prevent .env.local leaking into builds
 
-**Step 1: Create `.env.example`**
+### Task 2: Nginx Reverse Proxy + SSL
+- `nginx/nginx.conf` — HTTPS reverse proxy with security headers, gzip, rate limiting
+- `nginx/Dockerfile` — nginx:alpine with envsubst for domain substitution
+- `nginx/entrypoint.sh` — generates self-signed cert if real cert missing
+
+### Task 3: SSL with Certbot
+- `scripts/init-ssl.sh` — initial Let's Encrypt certificate
+- `scripts/renew-ssl.sh` — certificate renewal + nginx reload
+
+### Task 4: PostgreSQL Backup
+- `scripts/backup-db.sh` — daily backup with 30-day retention
+- `scripts/restore-db.sh` — restore from backup with confirmation
+- `scripts/setup-cron.sh` — installs daily backup + weekly SSL renewal
+
+### Task 5: Production Config
+- `backend/app/core/config.py` — added BACKEND_URL, FRONTEND_URL, SMTP_*, EMAIL_FROM, BACKUP_S3_BUCKET
+- `backend/app/main.py` — redirect_slashes=True (default, allows trailing slash redirects)
+- `backend/Dockerfile` — copies alembic.ini, alembic/, seed_prod.py; uvicorn runs with --proxy-headers
+- `frontend/src/lib/api.ts` — API_BASE hardcoded to '/api/v1' (relative URL)
+
+### Task 6: CI/CD Pipeline
+- `.github/workflows/ci.yml` — lint → test → docker build → deploy via SSH
+
+### Task 7: Documentation
+- `DEPLOYMENT.md` — full deployment guide
+- `README.md` — added production deployment section
+
+---
+
+## 🐛 BUGS FIXED DURING DEPLOYMENT
+
+### Mixed Content (HTTP vs HTTPS)
+**Root cause:** `.env.local` on VPS had `NEXT_PUBLIC_API_URL=http://...` which got COPY'd into Docker build and baked into the JS bundle at build time.
+**Fix:** Added `frontend/.dockerignore` excluding `.env.local`; hardcoded API_BASE to `/api/v1`.
+
+### FastAPI 307 Redirect to HTTP
+**Root cause:** FastAPI redirects `/api/v1/properties` → `/api/v1/properties/` but sends the redirect URL as `http://` because it doesn't know about HTTPS.
+**Fix:** Added `--proxy-headers --forwarded-allow-ips=*` to uvicorn CMD in backend Dockerfile.
+
+### Nginx "upstream directive not allowed"
+**Root cause:** nginx.conf was missing `events {}` and `http {}` blocks.
+**Fix:** Added proper `events { worker_connections 1024; }` and `http { ... }` wrapping all directives.
+
+### Nginx "no such file or directory" for entrypoint.sh
+**Root cause:** Alpine has no bash — only sh. The `#!/bin/bash` shebang failed silently.
+**Fix:** Changed to `#!/bin/sh`.
+
+### Nginx Config Variables Eaten by envsubst
+**Root cause:** `envsubst` treated `$binary_remote_addr` as a variable and replaced it with empty string.
+**Fix:** Switched from envsubst to `sed` for domain substitution.
+
+### SMTP_PORT Validation Error
+**Root cause:** `SMTP_PORT` typed as `int` in config.py, but docker-compose passed empty string `""` when not in .env.
+**Fix:** Removed optional env vars from docker-compose.prod.yml — they have defaults in config.py.
+
+---
+
+## 🚀 HOW TO DEPLOY
+
+### Quick Deploy
 ```bash
-# Database
-POSTGRES_USER=rentflow
-POSTGRES_PASSWORD=CHANGE_ME_STRONG_PASSWORD
-POSTGRES_DB=rentflow
+git clone https://github.com/b3nzuk3/rentflow.git
+cd rentflow
+cp .env.example .env
+nano .env  # Set POSTGRES_PASSWORD, SECRET_KEY, DOMAIN, EMAIL
 
-# Backend
-SECRET_KEY=CHANGE_ME_RUN_openssl_rand_hex_32
-DATABASE_URL=postgresql+asyncpg://rentflow:CHANGE_ME_STRONG_PASSWORD@db:5432/rentflow
-REDIS_URL=redis://redis:6379/0
-CORS_ORIGINS=["https://yourdomain.com"]
-DEBUG=false
+docker compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml exec backend alembic upgrade head
+docker compose -f docker-compose.prod.yml exec backend python seed_prod.py
 
-# Frontend
-NEXT_PUBLIC_API_URL=https://yourdomain.com/api/v1
+# SSL
+./scripts/init-ssl.sh
+docker compose -f docker-compose.prod.yml restart nginx
 
-# Domain
-DOMAIN=yourdomain.com
+# Backups
+./scripts/setup-cron.sh
 ```
 
-**Step 2: Create `docker-compose.prod.yml`**
-- No bind-mount volumes (uses image COPY)
-- No `--reload` flag
-- Restart policies: `unless-stopped`
-- Resource limits
-- Proper health checks
-- Named volumes for pgdata only
-
-**Step 3: Verify**
+### Update Procedure
 ```bash
-docker compose -f docker-compose.prod.yml config
+git pull origin master
+docker compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml exec backend alembic upgrade head
 ```
 
 ---
 
-## Task 2: Nginx Reverse Proxy + SSL
+## ⚠️ KEY GOTCHAS
 
-**Files:**
-- Create: `nginx/nginx.conf`
-- Create: `nginx/Dockerfile`
-
-**Step 1: Create Nginx config**
-- Reverse proxy `/` → frontend:3000
-- Reverse proxy `/api/` → backend:8000
-- WebSocket support for hot reload (dev) / static serving (prod)
-- Security headers (X-Frame-Options, CSP, HSTS)
-- Gzip compression
-- Rate limiting on API endpoints
-- Client max body size for file uploads
-
-**Step 2: Create Nginx Dockerfile**
-- Based on nginx:alpine
-- Copy config
-- Expose 80 + 443
-
-**Step 3: Update docker-compose.prod.yml**
-- Add nginx service
-- Add certbot service
-- Expose only port 80/443 (not 3000/8000)
-- Volume mounts for certs + nginx config
-
----
-
-## Task 3: SSL with Certbot
-
-**Files:**
-- Create: `scripts/init-ssl.sh`
-- Create: `scripts/renew-ssl.sh`
-
-**Step 1: Create init-ssl.sh**
-```bash
-#!/bin/bash
-# Run once to get initial certificate
-# Uses certbot standalone mode with webroot
-docker compose -f docker-compose.prod.yml run --rm certbot certonly \
-  --webroot --webroot-path=/var/www/certbot \
-  -d $DOMAIN --email $EMAIL --agree-tos --no-eff-email
-```
-
-**Step 2: Create renew-ssl.sh**
-```bash
-#!/bin/bash
-# Cron job: 0 3 * * 1 /path/to/renew-ssl.sh
-docker compose -f docker-compose.prod.yml run --rm certbot renew
-docker compose -f docker-compose.prod.yml exec nginx nginx -s reload
-```
-
-**Step 3: Add certbot service to docker-compose.prod.yml**
-```yaml
-certbot:
-  image: certbot/certbot
-  volumes:
-    - ./nginx/certs:/etc/letsencrypt
-    - ./nginx/www:/var/www/certbot
-```
-
----
-
-## Task 4: PostgreSQL Backup Script
-
-**Files:**
-- Create: `scripts/backup-db.sh`
-- Create: `scripts/restore-db.sh`
-
-**Step 1: Create backup-db.sh**
-```bash
-#!/bin/bash
-# Daily backup: pg_dump to compressed file
-# Usage: ./scripts/backup-db.sh
-BACKUP_DIR="./backups"
-TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-docker compose -f docker-compose.prod.yml exec -T db \
-  pg_dump -U rentflow rentflow | gzip > "$BACKUP_DIR/rentflow_$TIMESTAMP.sql.gz"
-# Keep last 30 days
-find $BACKUP_DIR -name "*.sql.gz" -mtime +30 -delete
-```
-
-**Step 2: Create restore-db.sh**
-```bash
-#!/bin/bash
-# Usage: ./scripts/restore-db.sh backup_file.sql.gz
-gunzip -c $1 | docker compose -f docker-compose.prod.yml exec -T db \
-  psql -U rentflow rentflow
-```
-
-**Step 3: Add cron job setup script**
-- Create: `scripts/setup-cron.sh`
-- Adds daily backup at 2am + weekly certbot renewal
-
----
-
-## Task 5: Production Config Updates
-
-**Files:**
-- Modify: `backend/app/core/config.py`
-- Modify: `frontend/next.config.js` (if needed)
-
-**Step 1: Add production env vars to config.py**
-- `BACKEND_URL` (for email links)
-- `FRONTEND_URL` (for redirects)
-- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `EMAIL_FROM`
-- `BACKUP_S3_BUCKET` (optional)
-
-**Step 2: Update CORS_ORIGINS parsing**
-- Support comma-separated string for production env
-
----
-
-## Task 6: Deployment Documentation
-
-**Files:**
-- Create: `DEPLOYMENT.md`
-
-**Content:**
-1. Prerequisites (Docker, domain, DNS)
-2. Server setup (Ubuntu/Debian)
-3. Clone + configure .env
-4. Initial SSL setup
-5. Start services
-6. Seed database
-7. Backup schedule
-8. Monitoring / health checks
-9. Update procedure (pull + rebuild)
-10. Troubleshooting
-
----
-
-## Task 7: Commit & Push
-
-**Step 1: Verify all files exist**
-```bash
-ls -la docker-compose.prod.yml nginx/ scripts/ DEPLOYMENT.md .env.example
-```
-
-**Step 2: Commit**
-```bash
-git add -A && git commit -m "feat: production deployment setup (Docker, Nginx, SSL, backups)"
-```
-
-**Step 3: Push**
-```bash
-git push origin main
-```
+1. **`.env.local` leaks into Docker builds** — always delete before rebuilding, or rely on `.dockerignore`
+2. **uvicorn needs `--proxy-headers`** — otherwise FastAPI redirects to `http://` behind nginx
+3. **Alpine has no bash** — entrypoint scripts must use `#!/bin/sh`
+4. **envsubst eats `$` variables** — use `sed` instead for domain substitution
+5. **NEXT_PUBLIC_API_URL is build-time** — changes require `--no-cache` rebuild
+6. **`POSTGRES_PASSWORD` must match `DATABASE_URL`** — docker-compose now constructs DATABASE_URL from individual vars to prevent mismatch
