@@ -100,3 +100,22 @@ class TestAuth:
         """Test getting profile without token."""
         response = await client.get("/api/v1/users/me")
         assert response.status_code in [401, 403]
+
+    @pytest.mark.asyncio
+    async def test_change_password(self, authenticated_client: AsyncClient, admin_user):
+        """Test successful password change."""
+        response = await authenticated_client.patch("/api/v1/users/me/password", json={
+            "current_password": "password123",
+            "new_password": "newpassword456",
+        })
+        assert response.status_code == 200
+        assert response.json()["message"] == "Password updated successfully"
+
+    @pytest.mark.asyncio
+    async def test_change_password_wrong_current(self, authenticated_client: AsyncClient, admin_user):
+        """Test password change with wrong current password."""
+        response = await authenticated_client.patch("/api/v1/users/me/password", json={
+            "current_password": "wrongpassword",
+            "new_password": "newpassword456",
+        })
+        assert response.status_code == 400

@@ -6,8 +6,8 @@ import uuid as uuid_lib
 
 from app.db.database import get_db
 from app.db.models import User, UserRole, UserProperty
-from app.core.security import get_current_user, require_roles, get_password_hash
-from app.schemas.users import UserResponse, UserInvite, UserUpdate
+from app.core.security import get_current_user, require_roles, get_password_hash, verify_password
+from app.schemas.users import UserResponse, UserInvite, UserUpdate, ChangePasswordRequest
 from app.services.audit_service import log_action
 
 router = APIRouter(redirect_slashes=False)
@@ -121,6 +121,23 @@ async def update_my_profile(
     resp = UserResponse.model_validate(current_user)
     resp.assigned_property_ids = prop_ids
     return resp
+
+
+@router.patch("/me/password")
+async def change_my_password(
+    data: ChangePasswordRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    # Verify current password
+    if not verify_password(data.current_password, current_user.password_hash):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+
+    # Hash new password and update
+    current_user.password_hash = get_password_hash(data.new_password)
+    await db.flush()
+    await log_action(db, current_user.organization_id, current_user.id, "CHANGE_PASSWORD", "User", new_value="Password changed")
+    return {"message": "Password updated successfully"}
 
 
 @router.patch("/{user_id}/toggle")
