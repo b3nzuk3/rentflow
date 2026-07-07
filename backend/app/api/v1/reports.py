@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
 from app.db.database import get_db
-from app.db.models import Property, Unit, Lease, Payment, UserRole
+from app.db.models import Property, Unit, Lease, Payment
 from app.core.security import get_current_user, get_user_property_filter
 
 router = APIRouter(redirect_slashes=False)

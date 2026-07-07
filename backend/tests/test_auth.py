@@ -1,9 +1,5 @@
-import uuid
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import select
-from app.db.models import User, Organization, UserRole
-from app.core.security import get_password_hash
 
 
 class TestAuth:

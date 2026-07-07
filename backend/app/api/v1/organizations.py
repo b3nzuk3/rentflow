@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import uuid as uuid_lib
@@ -7,7 +7,7 @@ from app.db.database import get_db
 from app.db.models import Organization, UserRole
 from app.core.security import get_current_user, require_roles
 from app.schemas.organizations import (
-    OrganizationCreate, OrganizationUpdate, OrganizationResponse
+    OrganizationUpdate, OrganizationResponse
 )
 from app.services.audit_service import log_action
 

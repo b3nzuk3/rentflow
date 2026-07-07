@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.db.database import get_db
-from app.db.models import Payment, Lease, Tenant, UserRole, PaymentStatus, RentSchedule, PaymentType, Unit
+from app.db.models import Payment, Lease, Tenant, UserRole, PaymentStatus, RentSchedule, Unit
 from app.core.security import get_current_user, require_roles, get_user_property_filter
 from app.schemas.payments import PaymentCreate, PaymentVerify, PaymentResponse, RentRollItem
 from app.services.audit_service import log_action
@@ -43,7 +43,7 @@ async def create_payment(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    from app.db.models import Tenant, Lease, RentSchedule
+    from app.db.models import Lease, RentSchedule
 
     # If tenant, verify the lease belongs to them
     if current_user.role == UserRole.TENANT:
@@ -248,7 +248,7 @@ async def get_rent_schedule(
     current_user=Depends(get_current_user),
 ):
     """Get rent schedule for a lease. Tenants can only see their own."""
-    from app.db.models import Lease, Tenant
+    from app.db.models import Lease
 
     lease = await db.get(Lease, lease_id)
     if not lease:
@@ -278,9 +278,8 @@ async def get_rent_roll(
     current_user=Depends(get_current_user),
 ):
     """Rent roll — shows all active leases with their current billing period status."""
-    from app.db.models import Lease, Tenant, Unit, Property, RentSchedule, UserRole
+    from app.db.models import Lease, Unit, Property, RentSchedule
     from app.core.security import get_user_property_filter
-    from sqlalchemy.orm import selectinload
     from datetime import datetime
     
     # Get current billing period (YYYY-MM)

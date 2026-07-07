@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
+from sqlalchemy import select
 from typing import Optional
 import uuid as uuid_lib
 
 from app.db.database import get_db
-from app.db.models import Unit, Property, Block, UserRole
+from app.db.models import Unit, UserRole
 from app.core.security import get_current_user, require_roles, get_user_property_filter
 from app.schemas.units import UnitCreate, UnitUpdate, UnitStatusUpdate, UnitResponse
 from app.services.audit_service import log_action

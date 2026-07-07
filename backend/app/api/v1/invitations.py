@@ -1,18 +1,17 @@
 import uuid
-from datetime import datetime, timedelta, timezone
-from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import datetime, timezone
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.db.database import get_db
-from app.db.models import Invitation, Tenant, User, UserRole, Lease, Unit, Property
+from app.db.models import Invitation, Tenant, User, UserRole, Lease, Unit
 from app.core.security import get_password_hash
 from app.core.config import get_settings
 from app.schemas.invitations import (
     InvitationValidateResponse,
     InvitationActivateRequest,
 )
-from app.services.email_service import send_invitation_email
 from app.services.audit_service import log_action
 
 settings = get_settings()

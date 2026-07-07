@@ -1,7 +1,6 @@
 import logging
 from fastapi import HTTPException, Request, status
 from fastapi.responses import JSONResponse
-from starlette.exceptions import HTTPException as StarletteHTTPException
 
 logger = logging.getLogger("rentflow.exceptions")
 

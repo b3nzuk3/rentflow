@@ -22,10 +22,8 @@ from app.main import app
 from app.db.database import Base
 from app.db.models import (
     Organization, User, Property, Block, Unit,
-    Tenant, Lease, Payment, AuditLog, Invitation,
-    Notification, RentSchedule,
-    UserRole, PropertyStatus, UnitStatus, TenantStatus,
-    LeaseStatus, PaymentStatus
+    Tenant, Lease, UserRole, PropertyStatus, UnitStatus, TenantStatus,
+    LeaseStatus
 )
 from app.core.security import get_password_hash, create_access_token
 
