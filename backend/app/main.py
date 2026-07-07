@@ -55,6 +55,7 @@ def create_application() -> FastAPI:
         version=settings.APP_VERSION,
         description="RentFlow V1 - Multi-tenant SaaS Property Management Platform",
         lifespan=lifespan,
+        redirect_slashes=False,
         docs_url="/api/docs",
         redoc_url="/api/redoc",
         openapi_url="/api/openapi.json",
