@@ -52,6 +52,7 @@ services:
       REDIS_URL: ${REDIS_URL}
       SECRET_KEY: ${SECRET_KEY}
       CORS_ORIGINS: ${CORS_ORIGINS:-["http://localhost:3000"]}
+      FRONTEND_URL: ${FRONTEND_URL:-https://${DOMAIN}}
       DEBUG: ${DEBUG:-false}
     depends_on:
       db:
