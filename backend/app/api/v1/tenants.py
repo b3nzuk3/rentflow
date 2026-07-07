@@ -255,7 +255,7 @@ async def invite_tenant(
     await db.flush()
 
     # 5. Build invitation link
-    frontend_url = "http://localhost:3000"
+    frontend_url = settings.FRONTEND_URL
     invitation_link = f"{frontend_url}/activate?token={token}"
 
     # 6. Send invitation email (stub)
