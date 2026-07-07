@@ -14,6 +14,7 @@ import { LandlordPayments } from "@/components/payments/LandlordPayments";
 import { LandlordLeases } from "@/components/leases/LandlordLeases";
 import { LandlordReports } from "@/components/reports/LandlordReports";
 import { SaaSSettings } from "@/components/settings/SaaSSettings";
+import { TenantSettings } from "@/components/settings/TenantSettings";
 import { NotificationsLog } from "@/components/notifications/NotificationsLog";
 import { AuditLogViewer } from "@/components/audit/AuditLogViewer";
 import { useRouter } from "next/navigation";
@@ -120,7 +121,12 @@ export default function DashboardPage() {
       {/* Main content with left offset for sidebar on desktop */}
       <main className="lg:ml-64 min-h-screen pt-16 lg:pt-0">
         <div className="px-6 py-8 md:px-10 max-w-7xl mx-auto">
-          {currentRole === "tenant" && <TenantDashboard />}
+          {currentRole === "tenant" && (
+            <>
+              <TenantDashboard />
+              {activeTab === "settings" && <TenantSettings />}
+            </>
+          )}
           {currentRole === "super_admin" && <SuperAdminDashboard />}
 
           {isLandlord && activeTab === "dashboard" && summary && (
