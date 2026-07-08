@@ -2,26 +2,32 @@
 
 import { useState, useEffect } from "react";
 import {
-  Building, UserCircle, Users, Shield, Bell, CreditCard, Layers, FileText, Download,
+  Building, UserCircle, Users, Bell, CreditCard, Layers, FileText, Download,
   Check, X, Plus, Lock, Phone, Mail, Globe, Settings, ChevronRight, Search,
   AlertTriangle, CheckCircle, Info, Eye, EyeOff, Smartphone, MapPin, Laptop
 } from "lucide-react";
 import { api } from "@/lib/api";
 import type { Organization, User, UserRole, Property } from "@/types";
 
-type SettingsTab = "org_profile" | "my_account" | "users_roles" | "security" | "notifications" | "payment_config" | "subscription_billing" | "audit_logs" | "data_export";
+type SettingsTab = "org_profile" | "my_account" | "users_roles" | "notifications" | "payment_config" | "subscription_billing" | "audit_logs" | "data_export";
 
 const tabs: { key: SettingsTab; label: string; icon: React.ElementType; ownerOnly?: boolean }[] = [
-  { key: "org_profile", label: "Organization Profile", icon: Building },
+  { key: "org_profile", label: "Organization Profile", icon: Building, ownerOnly: true },
   { key: "my_account", label: "My Account Profile", icon: UserCircle },
-  { key: "users_roles", label: "Users & Core Roles", icon: Users },
-  { key: "security", label: "Cryptographic Security", icon: Shield },
+  { key: "users_roles", label: "Users & Core Roles", icon: Users, ownerOnly: true },
   { key: "notifications", label: "Notification Channels", icon: Bell },
   { key: "payment_config", label: "Payment Routing", icon: CreditCard },
   { key: "subscription_billing", label: "Plan & Corporate Billing", icon: Layers, ownerOnly: true },
   { key: "audit_logs", label: "Secure Audit Trail", icon: FileText },
   { key: "data_export", label: "Data Portability", icon: Download },
 ];
+
+const roleLabels: Record<string, string> = {
+  org_owner: "Org Owner",
+  property_manager: "Property Manager",
+  accountant: "Accountant",
+  caretaker: "Caretaker",
+};
 
 export function SaaSSettings() {
   const [activeTab, setActiveTab] = useState<SettingsTab>("org_profile");
@@ -241,6 +247,11 @@ export function SaaSSettings() {
   const activeUnitsCount = 10;
   const getUnitLimit = () => { if (currentPlan === "Starter") return 10; if (currentPlan === "Growth") return 50; return 1000; };
 
+  const filteredTabs = tabs.filter(tab => {
+    if (tab.ownerOnly && user?.role !== "org_owner") return false;
+    return true;
+  });
+
   return (
     <div className="flex flex-col lg:flex-row gap-10 items-stretch relative min-h-[750px] animate-fade-in text-left">
       {/* Toast */}
@@ -262,7 +273,7 @@ export function SaaSSettings() {
             </div>
           </div>
           <nav className="flex flex-col gap-2">
-            {tabs.map(tab => {
+            {filteredTabs.map(tab => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.key;
               return (
@@ -293,7 +304,6 @@ export function SaaSSettings() {
               {activeTab === "org_profile" && "Organization Profile"}
               {activeTab === "my_account" && "My Account Profile"}
               {activeTab === "users_roles" && "Users & Roles Operating Hub"}
-              {activeTab === "security" && "Cryptographic Security Controls"}
               {activeTab === "notifications" && "Global Alert Frequencies"}
               {activeTab === "payment_config" && "Payment Coordinates Matrix"}
               {activeTab === "subscription_billing" && "Workspace Plan & Billing"}
@@ -303,7 +313,7 @@ export function SaaSSettings() {
           </div>
           <div className="flex items-center gap-2 bg-zinc-50 border border-zinc-200 px-4 py-2 rounded-xl text-xs font-bold leading-none shrink-0">
             <span className="text-zinc-600">Current Role:</span>
-            <span className="px-2.5 py-0.5 rounded font-mono text-[10px] bg-primary/15 text-[#006c0c] uppercase font-black tracking-wide">Org Owner</span>
+            <span className="px-2.5 py-0.5 rounded font-mono text-[10px] bg-primary/15 text-[#006c0c] uppercase font-black tracking-wide">{roleLabels[user?.role || ""] || user?.role}</span>
           </div>
         </div>
 
@@ -646,20 +656,6 @@ export function SaaSSettings() {
             </div>
           )}
 
-          {/* 4. SECURITY */}
-          {activeTab === "security" && (
-            <div className="space-y-8">
-              <h3 className="text-base font-extrabold text-on-surface">Change Password</h3>
-              <div className="space-y-5 max-w-md">
-                <div className="space-y-1.5"><label className="block text-xs font-extrabold font-mono text-zinc-500 uppercase">Current Password</label><div className="relative"><Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" /><input type="password" placeholder="••••••••" className="w-full pl-9 pr-4 py-3 border border-zinc-250 rounded-xl text-xs font-bold focus:ring-2 focus:ring-primary/20" /></div></div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5"><label className="block text-xs font-extrabold font-mono text-zinc-500 uppercase">New Password</label><input type="password" placeholder="••••••••" className="w-full px-4 py-3 border border-zinc-250 rounded-xl text-xs font-bold focus:ring-2 focus:ring-primary/20" /></div>
-                  <div className="space-y-1.5"><label className="block text-xs font-extrabold font-mono text-zinc-500 uppercase">Confirm Password</label><input type="password" placeholder="••••••••" className="w-full px-4 py-3 border border-zinc-250 rounded-xl text-xs font-bold focus:ring-2 focus:ring-primary/20" /></div>
-                </div>
-              </div>
-              <button className="px-6 py-2.5 bg-primary text-white rounded-xl font-bold text-xs flex items-center gap-2"><Lock className="w-4 h-4" /> Change Password</button>
-            </div>
-          )}
 
           {/* 5. NOTIFICATIONS */}
           {activeTab === "notifications" && (
