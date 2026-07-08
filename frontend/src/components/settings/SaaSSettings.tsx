@@ -97,9 +97,25 @@ export function SaaSSettings() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [selectedPropertyIds, setSelectedPropertyIds] = useState<string[]>([]);
 
+  // Audit logs
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditSearch, setAuditSearch] = useState("");
+  const [auditActionFilter, setAuditActionFilter] = useState("");
+  const [auditEntityFilter, setAuditEntityFilter] = useState("");
+  const [auditActions, setAuditActions] = useState<string[]>([]);
+  const [auditEntities, setAuditEntities] = useState<string[]>([]);
+
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (activeTab === "audit_logs") {
+      loadAuditLogs();
+      loadAuditFilters();
+    }
+  }, [activeTab, auditSearch, auditActionFilter, auditEntityFilter]);
 
   const loadData = async () => {
     try {
@@ -232,6 +248,40 @@ export function SaaSSettings() {
     try { showToast("✓ Payment configuration saved!"); }
     catch { showToast("Failed to save", "error"); }
     finally { setSaving(false); }
+  };
+
+  const loadAuditLogs = async () => {
+    setAuditLoading(true);
+    try {
+      const params = new URLSearchParams({ limit: "100" });
+      if (auditSearch) params.set("search", auditSearch);
+      if (auditActionFilter) params.set("action", auditActionFilter);
+      if (auditEntityFilter) params.set("entity", auditEntityFilter);
+      const { data } = await api.get(`/audit?${params.toString()}`);
+      setAuditLogs(data);
+    } catch (err) {
+      console.error("Failed to load audit logs", err);
+    } finally {
+      setAuditLoading(false);
+    }
+  };
+
+  const loadAuditFilters = async () => {
+    try {
+      const [actionsRes, entitiesRes] = await Promise.all([
+        api.get("/audit/actions").catch(() => ({ data: [] })),
+        api.get("/audit/entities").catch(() => ({ data: [] })),
+      ]);
+      setAuditActions(actionsRes.data);
+      setAuditEntities(entitiesRes.data);
+    } catch {}
+  };
+
+  const getActionColor = (action: string) => {
+    if (action.startsWith("CREATE") || action.startsWith("INVITE")) return "bg-emerald-50 text-emerald-700";
+    if (action.startsWith("UPDATE") || action.startsWith("VERIFY") || action.startsWith("SIGN") || action.startsWith("TOGGLE")) return "bg-blue-50 text-blue-700";
+    if (action.startsWith("DELETE")) return "bg-red-50 text-red-700";
+    return "bg-slate-50 text-slate-700";
   };
 
   const handleGenerateExport = () => {
@@ -804,12 +854,81 @@ export function SaaSSettings() {
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pb-1">
                 <div className="md:col-span-2 relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 w-4 h-4" />
-                  <input type="text" placeholder="Search audit trails..." className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-zinc-250 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+                  <input
+                    type="text"
+                    value={auditSearch}
+                    onChange={e => setAuditSearch(e.target.value)}
+                    placeholder="Search audit trails..."
+                    className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-zinc-250 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  />
                 </div>
-                <select className="px-3 py-2.5 rounded-xl border border-zinc-250 text-xs font-bold"><option>ALL Roles</option></select>
-                <select className="px-3 py-2.5 rounded-xl border border-zinc-250 text-xs font-bold"><option>ALL Actions</option></select>
+                <select
+                  value={auditActionFilter}
+                  onChange={e => setAuditActionFilter(e.target.value)}
+                  className="px-3 py-2.5 rounded-xl border border-zinc-250 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                >
+                  <option value="">ALL Actions</option>
+                  {auditActions.map(a => (
+                    <option key={a} value={a}>{a.replace(/_/g, " ")}</option>
+                  ))}
+                </select>
+                <select
+                  value={auditEntityFilter}
+                  onChange={e => setAuditEntityFilter(e.target.value)}
+                  className="px-3 py-2.5 rounded-xl border border-zinc-250 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                >
+                  <option value="">ALL Entities</option>
+                  {auditEntities.map(en => (
+                    <option key={en} value={en}>{en}</option>
+                  ))}
+                </select>
               </div>
-              <div className="bg-slate-50 rounded-xl p-8 text-center"><FileText className="w-10 h-10 text-zinc-300 mx-auto mb-2" /><p className="text-xs font-bold text-on-surface-variant">No audit events logged yet</p></div>
+
+              {auditLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+                </div>
+              ) : auditLogs.length === 0 ? (
+                <div className="bg-slate-50 rounded-xl p-8 text-center"><FileText className="w-10 h-10 text-zinc-300 mx-auto mb-2" /><p className="text-xs font-bold text-on-surface-variant">No audit events logged yet</p></div>
+              ) : (
+                <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
+                  <div className="divide-y divide-zinc-100">
+                    {auditLogs.map((log, i) => (
+                      <div key={log.id ?? i} className="px-6 py-4 hover:bg-slate-50/50 transition-colors">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex items-start gap-3 min-w-0">
+                            <span className={`px-2 py-0.5 text-[10px] font-bold font-mono uppercase rounded border shrink-0 ${getActionColor(log.action)}`}>
+                              {log.action?.replace(/_/g, " ")}
+                            </span>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 text-xs font-bold text-on-surface">
+                                <span className="bg-zinc-100 px-1.5 py-0.5 rounded text-[10px] font-mono">{log.entity}</span>
+                                {log.previous_value && log.new_value && (
+                                  <>
+                                    <span className="text-on-surface-variant truncate max-w-[120px]">{log.previous_value}</span>
+                                    <ArrowRight className="w-3 h-3 text-primary shrink-0" />
+                                    <span className="text-primary truncate max-w-[120px]">{log.new_value}</span>
+                                  </>
+                                )}
+                                {log.new_value && !log.previous_value && (
+                                  <span className="text-primary truncate">{log.new_value}</span>
+                                )}
+                                {log.previous_value && !log.new_value && (
+                                  <span className="text-red-600 line-through truncate">{log.previous_value}</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-[10px] font-mono text-on-surface-variant shrink-0">
+                            <Clock className="w-3 h-3" />
+                            {log.created_at ? new Date(log.created_at).toLocaleString() : ""}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
