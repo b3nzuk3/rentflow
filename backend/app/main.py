@@ -26,6 +26,7 @@ from app.api.v1 import (
     audit_router,
     reports_router,
     invitations_router,
+    export,
 )
 
 # Configure structured logging
@@ -98,6 +99,7 @@ def create_application() -> FastAPI:
     app.include_router(audit_router, prefix="/api/v1/audit", tags=["audit"])
     app.include_router(reports_router, prefix="/api/v1/reports", tags=["reports"])
     app.include_router(invitations_router, prefix="/api/v1/invitations", tags=["invitations"])
+    app.include_router(export.router, prefix="/api/v1/export", tags=["export"])
 
     @app.get("/api/health", tags=["health"])
     @limiter.limit("5/minute")
