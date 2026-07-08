@@ -139,7 +139,6 @@ jobs:
     steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
-        timeout: 600
         with:
           host: ${{ secrets.VPS_HOST }}
           username: hussenito7
