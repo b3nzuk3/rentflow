@@ -30,7 +30,7 @@ const roleLabels: Record<string, string> = {
 };
 
 export function SaaSSettings() {
-  const [activeTab, setActiveTab] = useState<SettingsTab>("org_profile");
+  const [activeTab, setActiveTab] = useState<SettingsTab>("my_account");
   const [org, setOrg] = useState<Organization | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
