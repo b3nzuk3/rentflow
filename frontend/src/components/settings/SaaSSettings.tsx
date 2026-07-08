@@ -48,6 +48,14 @@ export function SaaSSettings() {
   const [accEmail, setAccEmail] = useState("");
   const [accPhone, setAccPhone] = useState("");
 
+  // Password change
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showCurrentPw, setShowCurrentPw] = useState(false);
+  const [showNewPw, setShowNewPw] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
+
   // Notifications
   const [notifPrefs, setNotifPrefs] = useState({
     rentDueReminders: true, overdueRentAlerts: true, paymentSubmitted: true,
@@ -197,6 +205,19 @@ export function SaaSSettings() {
       showToast(err.response?.data?.detail || "Failed to save", "error");
     }
     finally { setSaving(false); }
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) { showToast("Passwords do not match", "error"); return; }
+    if (newPassword.length < 8) { showToast("Password must be at least 8 characters", "error"); return; }
+    setChangingPassword(true);
+    try {
+      await api.patch("/users/me/password", { current_password: currentPassword, new_password: newPassword });
+      showToast("✓ Password updated!");
+      setCurrentPassword(""); setNewPassword(""); setConfirmPassword("");
+    } catch (err: any) { showToast(err.response?.data?.detail || "Failed to change password", "error"); }
+    finally { setChangingPassword(false); }
   };
 
   const handleSavePaymentConfig = async (e: React.FormEvent) => {
@@ -378,6 +399,82 @@ export function SaaSSettings() {
                   <button type="submit" className="px-7 py-3 bg-primary text-white rounded-xl font-bold text-xs">Save Changes</button>
                 </form>
               )}
+
+              {/* Change Password */}
+              <div className="flat-card border p-7 rounded-2xl bg-zinc-50/50 space-y-6">
+                <div className="flex items-center gap-3 pb-4 border-b border-zinc-150">
+                  <div className="p-2.5 bg-primary/10 rounded-xl text-primary"><Lock className="w-5 h-5" /></div>
+                  <div>
+                    <h3 className="text-lg font-extrabold text-on-surface">Change Password</h3>
+                    <p className="text-[10px] font-mono text-zinc-450 uppercase tracking-wider">Update your account password</p>
+                  </div>
+                </div>
+                <form onSubmit={handleChangePassword} className="space-y-5">
+                  <div className="space-y-2">
+                    <label className="block text-xs font-extrabold font-mono text-zinc-500 uppercase">Current Password</label>
+                    <div className="relative">
+                      <input
+                        type={showCurrentPw ? "text" : "password"}
+                        value={currentPassword}
+                        onChange={e => setCurrentPassword(e.target.value)}
+                        placeholder="Enter current password"
+                        className="w-full px-4 py-3.5 pr-12 border border-zinc-250 rounded-xl text-xs font-bold focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all bg-zinc-50/50"
+                        disabled={changingPassword}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowCurrentPw(!showCurrentPw)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 transition-colors"
+                        aria-label={showCurrentPw ? "Hide password" : "Show password"}
+                      >
+                        {showCurrentPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-xs font-extrabold font-mono text-zinc-500 uppercase">New Password</label>
+                    <div className="relative">
+                      <input
+                        type={showNewPw ? "text" : "password"}
+                        value={newPassword}
+                        onChange={e => setNewPassword(e.target.value)}
+                        placeholder="Enter new password (min 8 characters)"
+                        className="w-full px-4 py-3.5 pr-12 border border-zinc-250 rounded-xl text-xs font-bold focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all bg-zinc-50/50"
+                        disabled={changingPassword}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPw(!showNewPw)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 transition-colors"
+                        aria-label={showNewPw ? "Hide password" : "Show password"}
+                      >
+                        {showNewPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-zinc-450 font-mono">Minimum 8 characters</p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-xs font-extrabold font-mono text-zinc-500 uppercase">Confirm New Password</label>
+                    <div className="relative">
+                      <input
+                        type={showNewPw ? "text" : "password"}
+                        value={confirmPassword}
+                        onChange={e => setConfirmPassword(e.target.value)}
+                        placeholder="Confirm new password"
+                        className="w-full px-4 py-3.5 pr-12 border border-zinc-250 rounded-xl text-xs font-bold focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all bg-zinc-50/50"
+                        disabled={changingPassword}
+                      />
+                    </div>
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={changingPassword}
+                    className="px-7 py-3 bg-[#006c0c] text-white hover:bg-neutral-800 rounded-xl font-bold text-xs uppercase font-mono tracking-wider transition-all shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {changingPassword ? "Updating..." : "Update Password"}
+                  </button>
+                </form>
+              </div>
             </div>
           )}
 
