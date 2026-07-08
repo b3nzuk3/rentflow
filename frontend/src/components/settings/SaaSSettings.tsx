@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import {
   Building, UserCircle, Users, Bell, CreditCard, Layers, FileText, Download,
   Check, X, Plus, Lock, Phone, Mail, Globe, Settings, ChevronRight, Search,
-  AlertTriangle, CheckCircle, Info, Eye, EyeOff, Smartphone, MapPin, Laptop
+  AlertTriangle, CheckCircle, Info, Eye, EyeOff, Smartphone, MapPin, Laptop, ArrowRight, Clock
 } from "lucide-react";
 import { api } from "@/lib/api";
 import type { Organization, User, UserRole, Property } from "@/types";
@@ -284,9 +284,28 @@ export function SaaSSettings() {
     return "bg-slate-50 text-slate-700";
   };
 
-  const handleGenerateExport = () => {
-    const entities = Object.entries(exportEntities).filter(([_, v]) => v).map(([k]) => k).join(", ");
-    showToast(`✓ Export generated (${exportFormat}): ${entities}`);
+  const handleGenerateExport = async () => {
+    const selectedEntities = Object.entries(exportEntities).filter(([_, v]) => v).map(([k]) => k);
+    if (selectedEntities.length === 0) {
+      showToast("Select at least one entity to export", "error");
+      return;
+    }
+    for (const entity of selectedEntities) {
+      try {
+        const response = await api.get(`/export/${entity}`, { responseType: "blob" });
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute("download", `${entity}_export.csv`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+      } catch (err) {
+        showToast(`Failed to export ${entity}`, "error");
+      }
+    }
+    showToast(`✓ Exported ${selectedEntities.length} file(s)`);
   };
 
   if (loading) {
@@ -951,7 +970,8 @@ export function SaaSSettings() {
                   ))}
                 </div>
                 <div><label className="block text-[10px] font-bold font-mono text-zinc-650 uppercase mb-1.5">Format</label>
-                  <select value={exportFormat} onChange={e => setExportFormat(e.target.value as any)} className="w-full px-3.5 py-2.5 border border-zinc-250 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"><option value="CSV">CSV</option><option value="Excel">Excel</option><option value="PDF">PDF</option></select>
+                  <select value={exportFormat} onChange={e => setExportFormat(e.target.value as any)} className="w-full px-3.5 py-2.5 border border-zinc-250 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"><option value="CSV">CSV</option><option value="Excel" disabled>Excel</option><option value="PDF" disabled>PDF</option></select>
+                  <p className="text-[10px] font-medium text-zinc-450 mt-1.5">CSV export is currently available. Excel &amp; PDF support coming soon.</p>
                 </div>
               </div>
               <button onClick={handleGenerateExport} className="px-6 py-2.5 bg-primary text-white rounded-xl font-bold text-xs flex items-center gap-2"><Download className="w-4 h-4" /> Generate Export</button>
